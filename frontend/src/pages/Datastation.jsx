@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Page, PageTitle, Card, BtnPrimary, BtnGhost } from '../components/UI'
-import { dsStatus, dsRules, dsLaadTestset, dsReset, dsBeantwoord } from '../services/api'
+import { dsStatus, dsRules, dsLaadTestset, dsReset, dsBeantwoord, dsUpload } from '../services/api'
 
 const DEMO_SPARQL = `PREFIX onz-pers: <http://purl.org/ozo/onz-pers#>
 SELECT (COUNT(?m) AS ?n) WHERE {
@@ -23,6 +23,10 @@ export default function Datastation() {
   const [antwoord, setAntwoord] = useState(null)
   const [bezig, setBezig]   = useState(false)
   const [fout, setFout]     = useState(null)
+  const [upFile, setUpFile] = useState(null)
+  const [upMapping, setUpMapping] = useState('{\n  "kolomnaam": {"concept_uri": "http://purl.org/ozo/onz-pers#functie", "kind": "data", "datatype": "string"}\n}')
+  const [upClass, setUpClass] = useState('http://purl.org/ozo/onz-pers#Medewerker')
+  const [upRes, setUpRes] = useState(null)
 
   function ververs() {
     dsStatus().then(setStatus).catch(e => setFout(e.message))
@@ -40,6 +44,13 @@ export default function Datastation() {
   async function beantwoord() {
     setBezig(true); setFout(null); setAntwoord(null)
     try { setAntwoord(await dsBeantwoord(sparql)) } catch (e) { setFout(e.message) } finally { setBezig(false) }
+  }
+
+  async function uploaden() {
+    if (!upFile) { setFout('Kies eerst een CSV-bestand.'); return }
+    setBezig(true); setFout(null); setUpRes(null)
+    try { setUpRes(await dsUpload(upFile, upMapping, upClass)); ververs() }
+    catch (e) { setFout(e.message) } finally { setBezig(false) }
   }
 
   const datasets = status ? Object.entries(status.datasets) : []
@@ -74,6 +85,22 @@ export default function Datastation() {
             Ingeladen: {datasets.map(([n, c]) => <span key={n} style={{ marginRight: 12 }}>{n} <b>({c})</b></span>)}
           </div>
         )}
+      </Card>
+
+      <Card style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Echte brondata inladen</div>
+        <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>Upload een CSV (bv. een happy-flow bronbestand) met een kolom→concept-mapping; het datastation beeldt het af op RDF.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input type="file" accept=".csv,text/csv" onChange={e => setUpFile(e.target.files?.[0] || null)} style={{ fontSize: 13 }} />
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>RDF-class (rdf:type per record)</label>
+          <input value={upClass} onChange={e => setUpClass(e.target.value)} style={{ padding: '8px 12px', borderRadius: 'var(--radius)', border: '1.5px solid var(--border)', fontSize: 13, fontFamily: 'monospace' }} />
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>Mapping (JSON: kolom → concept)</label>
+          <textarea value={upMapping} onChange={e => setUpMapping(e.target.value)} rows={5} style={{ fontFamily: 'monospace', fontSize: 12, padding: '10px 12px', borderRadius: 'var(--radius)', border: '1.5px solid var(--border)', resize: 'vertical' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <BtnPrimary onClick={uploaden} disabled={bezig}>Inladen</BtnPrimary>
+            {upRes && <span style={{ fontSize: 13, color: 'var(--green)' }}>✓ {upRes.dataset}: {upRes.records} records → {upRes.triples} triples</span>}
+          </div>
+        </div>
       </Card>
 
       <Card style={{ marginBottom: 18 }}>

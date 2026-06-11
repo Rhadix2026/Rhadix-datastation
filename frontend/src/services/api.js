@@ -98,3 +98,14 @@ export const dsRules       = () => req('GET', '/datastation/rules')
 export const dsLaadTestset = () => req('POST', '/datastation/laad-testset')
 export const dsReset       = () => req('POST', '/datastation/reset')
 export const dsBeantwoord  = (sparql) => req('POST', '/datastation/beantwoord', { sparql })
+
+export async function dsUpload(file, mappingJson, classUri) {
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('mapping', mappingJson)
+  if (classUri) fd.append('class_uri', classUri)
+  const res = await fetch(`${BASE}/datastation/upload`, { method: 'POST', headers: authHeaders(), body: fd })
+  const d = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(d.detail || `Upload mislukt (${res.status})`)
+  return d
+}
