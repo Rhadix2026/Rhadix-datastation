@@ -12,6 +12,19 @@ from typing import Optional
 from . import rdf_store as rs
 
 
+def _kies_waarde(cols, rows):
+    """Kies de uitkomst: prefereer een kolom 'waarde', anders de eerste scalar."""
+    if not rows:
+        return None
+    for key in ("waarde", "value", "result"):
+        if key in cols and rows[0].get(key) not in (None, ""):
+            try:
+                return float(str(rows[0][key]).replace(",", "."))
+            except (TypeError, ValueError):
+                pass
+    return rs._first_scalar(cols, rows)
+
+
 @dataclass
 class Antwoord:
     status: str                 # OK | GEEN_DATA | FOUT
@@ -71,7 +84,7 @@ class Datastation:
             try:
                 rs._fuseki_load(self._graph)
                 cols, rows = rs._fuseki_query(sparql)
-                val = rs._first_scalar(cols, rows)
+                val = _kies_waarde(cols, rows)
                 return Antwoord("OK" if val is not None else "GEEN_DATA", val, "fuseki")
             except Exception:
                 pass
@@ -79,7 +92,7 @@ class Datastation:
         try:
             res = self._graph.query(sparql)
             cols, rows = rs._parse_rdflib_result(res)
-            val = rs._first_scalar(cols, rows)
+            val = _kies_waarde(cols, rows)
             return Antwoord("OK" if val is not None else "GEEN_DATA", val, "rdflib")
         except Exception as exc:
             return Antwoord("FOUT", None, "rdflib", f"SPARQL-fout: {exc}")
