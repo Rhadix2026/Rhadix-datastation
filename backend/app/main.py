@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.bootstrap import init_db
+from app.datastation.store import seed_twin
 from app.routers import health, meta, admin, org, datastation
 from app.auth.router import router as auth_router
 
@@ -27,6 +28,7 @@ app.add_middleware(
 @app.on_event("startup")
 def _startup():
     init_db()
+    seed_twin()
 
 
 app.include_router(health.router, prefix="/api", tags=["health"])

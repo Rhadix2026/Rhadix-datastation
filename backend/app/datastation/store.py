@@ -44,6 +44,17 @@ class Datastation:
         self._datasets[naam] = len(records)
         return len(g)
 
+    def laad_graph(self, naam: str, graph, n_records: int) -> int:
+        from rdflib import Graph
+        if self._graph is None:
+            self._graph = Graph()
+            for pre, ns in graph.namespaces():
+                self._graph.bind(pre, ns)
+        for t in graph:
+            self._graph.add(t)
+        self._datasets[naam] = n_records
+        return len(graph)
+
     @property
     def triple_count(self) -> int:
         return len(self._graph) if self._graph is not None else 0
@@ -76,3 +87,30 @@ class Datastation:
 
 # Eén datastation per proces
 STATION = Datastation()
+
+
+def seed_twin(codes=None) -> None:
+    """Twin-demo: kik:Observatie-data zodat de gevalideerde vraag vanuit Uitvraag
+    (AVG over kik:waarde per kik:indicator) een echt antwoord oplevert. Idempotent."""
+    import hashlib
+    from rdflib import Graph, Literal, Namespace, URIRef
+    from rdflib.namespace import RDF, XSD
+    if STATION.triple_count > 0:
+        return
+    if codes is None:
+        codes = ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7",
+                 "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7",
+                 "3.1", "3.2", "3.3",
+                 "PERS_RATIO", "ZIEKTEVERZUIM", "MEDEWERKERS", "CLIENT_TEVREDENHEID"]
+    KIK = Namespace("https://kik-v.nl/ns#")
+    g = Graph(); g.bind("kik", KIK)
+    i = 0; n = 0
+    for code in codes:
+        h = int(hashlib.sha256(code.encode()).hexdigest(), 16)
+        for k in range(4):
+            v = round(((h >> (k * 7)) % 1000) / 10.0 + 5, 1)
+            node = URIRef(f"http://rhadix.nl/twin/o{i}"); i += 1; n += 1
+            g.add((node, RDF.type, KIK.Observatie))
+            g.add((node, KIK.indicator, Literal(code)))                 # plain literal
+            g.add((node, KIK.waarde, Literal(v, datatype=XSD.decimal)))
+    STATION.laad_graph("twin_observaties", g, n)

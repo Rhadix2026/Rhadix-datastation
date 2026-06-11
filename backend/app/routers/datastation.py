@@ -78,7 +78,9 @@ async def upload(file: UploadFile = File(...), mapping: str = Form(...),
 
 
 @router.post("/datastation/beantwoord")
-def beantwoord(vraag: SparqlVraag, current: User = Depends(get_current_user)):
+def beantwoord(vraag: SparqlVraag):
+    # Publiek/server-to-server: een afnemer (Uitvraag) stuurt de gevalideerde vraag.
+    # (KIK-V-vertrouwenslaag — Verifiable Credential-verificatie — is fase 3.)
     """Beantwoord een gevalideerde vraag (SPARQL) op de ingeladen store."""
     a = STATION.beantwoord(vraag.sparql)
     return {"status": a.status, "waarde": a.waarde, "backend": a.backend, "toelichting": a.toelichting}
