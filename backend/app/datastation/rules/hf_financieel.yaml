@@ -1,0 +1,67 @@
+- indicator_id: hf_financieel_boekingen_count
+  name: Financiële boekingen AFAS — totaal
+  description: >
+    Totaal aantal financiële boekingsregels in AFAS Financieel.
+  source_dataset: financieleboeking_afas_fin.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: grootBoekRekening
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - financieel
+    - afas
+
+- indicator_id: hf_financieel_bedrag_sum
+  name: Financiële boekingen AFAS — totaal boekingsbedrag
+  description: >
+    Som van alle boekingsBedrag-waarden in AFAS Financieel.
+  source_dataset: financieleboeking_afas_fin.csv
+  dayfirst: true
+  aggregation:
+    function: sum
+    field: boekingsBedrag
+  tolerance:
+    absolute: 0
+    percentage: 1.0
+  tags:
+    - happy_flow
+    - financieel
+    - afas
+
+- indicator_id: hf_financieel_uniek_gbr
+  name: Financiële boekingen AFAS — unieke grootboekrekeningen
+  description: >
+    Aantal unieke grootboekrekeningen waarop geboekt is in AFAS Financieel.
+  source_dataset: financieleboeking_afas_fin.csv
+  dayfirst: true
+  aggregation:
+    function: nunique
+    field: grootBoekRekening
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - financieel
+    - afas
+
+- indicator_id: hf_grootboekrubriek_count
+  name: Grootboekrubrieken AFAS — totaal
+  description: >
+    Totaal aantal grootboekrekening-definities in AFAS Financieel.
+  source_dataset: grootboekrubriek_afas_fin.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: grootboekRekeningNummer
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - financieel
+    - afas

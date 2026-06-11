@@ -1,0 +1,52 @@
+- indicator_id: hf_werkovereenkomst_afas_count
+  name: Werkovereenkomsten AFAS HRM — totaal
+  description: >
+    Totaal aantal dienstverband-records in AFAS HRM.
+  source_dataset: werkovereenkomst_afas_hrm.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: DienstverbandNummer
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - werkovereenkomsten
+    - afas
+
+- indicator_id: hf_werkovereenkomst_afas_actief
+  name: Werkovereenkomsten AFAS HRM — actief (open of einddatum in toekomst)
+  description: >
+    Aantal dienstverbanden in AFAS HRM zonder einddatum of met einddatum >= 2025-01-01.
+  source_dataset: werkovereenkomst_afas_hrm.csv
+  dayfirst: true
+  peildatum_field: EindDatum
+  peildatum: "2025-01-01"
+  aggregation:
+    function: count
+    field: DienstverbandNummer
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - werkovereenkomsten
+    - afas
+
+- indicator_id: hf_werkovereenkomst_afas_uniek_medewerker
+  name: Werkovereenkomsten AFAS HRM — aantal unieke medewerkers
+  description: >
+    Aantal unieke medewerkers (PersoneelsNummer) met een dienstverband in AFAS HRM.
+  source_dataset: werkovereenkomst_afas_hrm.csv
+  dayfirst: true
+  aggregation:
+    function: nunique
+    field: PersoneelsNummer
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - werkovereenkomsten
+    - afas

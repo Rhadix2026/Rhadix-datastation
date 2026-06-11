@@ -1,0 +1,31 @@
+indicator_id: client_count
+name: Aantal cliënten
+description: >
+  Aantal unieke cliënten met een actieve zorgovereenkomst op de peildatum.
+source_dataset: clienten.csv
+peildatum_field: zorg_einddatum
+peildatum: "2024-12-31"
+filters:
+  - field: zorg_status
+    operator: in
+    value: ["actief", "tijdelijk_gestopt"]
+  - field: bsn
+    operator: notnull
+aggregation:
+  function: nunique
+  field: bsn
+sparql_query: |
+  PREFIX rhadix: <https://rhadix.nl/ontology#>
+  SELECT (COUNT(DISTINCT ?bsn) AS ?count)
+  WHERE {
+    ?c a rhadix:Client ;
+       rhadix:bsn ?bsn ;
+       rhadix:zorgStatus ?status .
+    FILTER(?status IN ("actief", "tijdelijk_gestopt"))
+  }
+tolerance:
+  absolute: 0
+  percentage: 1.0
+tags:
+  - clienten
+  - zorg

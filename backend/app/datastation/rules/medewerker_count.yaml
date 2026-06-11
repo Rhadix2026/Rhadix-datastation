@@ -1,0 +1,31 @@
+indicator_id: medewerker_count
+name: Aantal medewerkers
+description: >
+  Telt het aantal unieke medewerkers met een actief contract op de peildatum.
+source_dataset: medewerkers.csv
+peildatum_field: contract_einddatum
+peildatum: "2024-12-31"
+filters:
+  - field: contract_status
+    operator: eq
+    value: "actief"
+  - field: dienstverband_fte
+    operator: gt
+    value: 0
+aggregation:
+  function: count
+  field: medewerker_id
+sparql_query: |
+  PREFIX rhadix: <https://rhadix.nl/ontology#>
+  SELECT (COUNT(DISTINCT ?m) AS ?count)
+  WHERE {
+    ?m a rhadix:Medewerker ;
+       rhadix:contractStatus "actief" ;
+       rhadix:peildatum "2024-12-31" .
+  }
+tolerance:
+  absolute: 0
+  percentage: 2.0
+tags:
+  - personeel
+  - beschikbaarheid

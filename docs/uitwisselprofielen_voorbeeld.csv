@@ -1,0 +1,5 @@
+aanbieder_id_type,aanbieder_id,aanbieder_naam,software_leverancier,uitwisselprofiel,versie,status,laatst_bijgewerkt
+kvk,30112233,Zorggroep De Linden,Nedap,igj-toezicht,1.0,productie,2026-02-01
+kvk,30112233,Zorggroep De Linden,Nedap,zorgkantoren-inkoop,1.0,productie,2026-02-01
+kvk,44556677,Stichting Thuiszorg West,PinkRoccade,zorgkantoren-inkoop,1.0,productie,2026-01-20
+kvk,55667788,Verpleeghuis Avondrood,Ecare,kwaliteitskader,2.1,productie,2026-02-15

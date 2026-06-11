@@ -1,0 +1,53 @@
+- indicator_id: hf_werkovereenkomst_ons_count
+  name: Werkovereenkomsten ONS — totaal
+  description: >
+    Totaal aantal werkovereenkomst-records in ONS (alle statussen).
+  source_dataset: werkovereenkomst_ons.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: objectId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - werkovereenkomsten
+    - ons
+
+- indicator_id: hf_werkovereenkomst_ons_actief
+  name: Werkovereenkomsten ONS — actief (open of einddatum in toekomst)
+  description: >
+    Aantal werkovereenkomsten in ONS waarvan endDate niet ingevuld is (open einde)
+    of nog niet verstreken is. Peildatum 2025-01-01.
+  source_dataset: werkovereenkomst_ons.csv
+  dayfirst: true
+  peildatum_field: endDate
+  peildatum: "2025-01-01"
+  aggregation:
+    function: count
+    field: objectId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - werkovereenkomsten
+    - ons
+
+- indicator_id: hf_werkovereenkomst_ons_uniek_medewerker
+  name: Werkovereenkomsten ONS — aantal unieke medewerkers
+  description: >
+    Aantal unieke medewerkers (employeeId) met een werkovereenkomst in ONS.
+  source_dataset: werkovereenkomst_ons.csv
+  dayfirst: true
+  aggregation:
+    function: nunique
+    field: employeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - werkovereenkomsten
+    - ons

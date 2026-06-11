@@ -1,0 +1,84 @@
+- indicator_id: hf_vestiging_count
+  name: Vestigingen ONS — totaal
+  description: >
+    Totaal aantal vestigingen in het ONS-bronsysteem.
+  source_dataset: vestiging_ons.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: objectId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - vestigingen
+    - ons
+
+- indicator_id: hf_vestiging_uniek_regio
+  name: Vestigingen ONS — unieke regio's
+  description: >
+    Aantal unieke regio's waaronder vestigingen vallen in ONS.
+  source_dataset: vestiging_ons.csv
+  dayfirst: true
+  aggregation:
+    function: nunique
+    field: regio
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - vestigingen
+    - ons
+
+- indicator_id: hf_kostenplaats_count
+  name: WLZ-kostenplaatsen AFAS — totaal
+  description: >
+    Totaal aantal WLZ-kostenplaatsen in AFAS Financieel.
+  source_dataset: wlzkostenplaats_afas_fin.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: kostenPlaats
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - kostenplaatsen
+    - afas
+
+- indicator_id: hf_functie_count
+  name: Functies ONS — totaal
+  description: >
+    Totaal aantal functie-records in ONS.
+  source_dataset: functie_ons.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: functie
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - functies
+    - ons
+
+- indicator_id: hf_functie_nunique
+  name: Functies ONS — unieke functies
+  description: >
+    Aantal unieke functiebenamingen in ONS.
+  source_dataset: functie_ons.csv
+  dayfirst: true
+  aggregation:
+    function: nunique
+    field: functie
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - functies
+    - ons

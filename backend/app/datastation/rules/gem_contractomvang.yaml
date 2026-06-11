@@ -1,0 +1,30 @@
+indicator_id: gem_contractomvang
+name: Gemiddelde contractomvang (FTE)
+description: >
+  Gemiddelde FTE-omvang van alle actieve contracten op de peildatum.
+source_dataset: contracten.csv
+peildatum_field: einddatum
+peildatum: "2024-12-31"
+filters:
+  - field: status
+    operator: eq
+    value: "actief"
+  - field: fte
+    operator: notnull
+aggregation:
+  function: mean
+  field: fte
+sparql_query: |
+  PREFIX rhadix: <https://rhadix.nl/ontology#>
+  SELECT (AVG(?fte) AS ?gemiddelde)
+  WHERE {
+    ?c a rhadix:Contract ;
+       rhadix:status "actief" ;
+       rhadix:fte ?fte .
+  }
+tolerance:
+  absolute: 0.05
+  percentage: 3.0
+tags:
+  - contracten
+  - personeel

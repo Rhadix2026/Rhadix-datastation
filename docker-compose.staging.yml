@@ -1,0 +1,85 @@
+# Rhadix Datastation — Staging docker-compose
+# ─────────────────────────────────────────────────────────────────────────────
+# VOLLEDIG GESCHEIDEN van productie én van de Rhadix-validation-app:
+#   - Eigen container-namen   (datastation-staging-*)
+#   - Eigen poorten           (5181 / 8017)
+#   - Eigen database          (datastation_staging op volume datastation_staging_pgdata)
+#   - Eigen image-tag         (:staging)
+#   - Eigen env-file          (.env.staging op de server)
+#
+# Gebruik op de server:
+#   docker compose -p datastation-staging -f docker-compose.staging.yml --env-file .env.staging up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: datastation-staging-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${STAGING_DB_USER:-datastation_staging}
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD:?Stel STAGING_DB_PASSWORD in in .env.staging}
+      POSTGRES_DB:       ${STAGING_DB_NAME:-datastation_staging}
+    volumes:
+      - pgdata_staging:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STAGING_DB_USER:-datastation_staging} -d ${STAGING_DB_NAME:-datastation_staging}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Geen externe poort — alleen via intern Docker-netwerk
+
+  fuseki:
+    image: stain/jena-fuseki:5.1.0
+    container_name: datastation-staging-fuseki
+    restart: unless-stopped
+    environment:
+      ADMIN_PASSWORD:   ${STAGING_FUSEKI_PASSWORD:-datastation-staging-admin}
+      FUSEKI_DATASET_1: kik
+      JVM_ARGS:         -Xmx512m
+    volumes:
+      - fuseki_staging:/fuseki
+    # Geen externe poort — alleen intern Docker-netwerk
+
+  backend:
+    image: ghcr.io/${GHCR_ORG:-rhadix2026}/datastation-backend:${STAGING_IMAGE_TAG:-staging}
+    container_name: datastation-staging-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      fuseki:
+        condition: service_started
+    environment:
+      DATABASE_URL:       postgresql://${STAGING_DB_USER:-datastation_staging}:${STAGING_DB_PASSWORD}@datastation-staging-db:5432/${STAGING_DB_NAME:-datastation_staging}
+      JWT_SECRET_KEY:     ${STAGING_JWT_SECRET_KEY:?Stel STAGING_JWT_SECRET_KEY in als GitHub Secret}
+      KIK_ENV:            staging
+      KIK_ADMIN_EMAIL:    ${STAGING_ADMIN_EMAIL:-admin@kik-starter.nl}
+      KIK_ADMIN_PASSWORD: ${STAGING_ADMIN_PASSWORD:?Stel STAGING_ADMIN_PASSWORD in in .env.staging}
+      FUSEKI_URL:         http://datastation-staging-fuseki:3030
+      FUSEKI_DATASET:     kik
+      FUSEKI_USER:        admin
+      FUSEKI_PASSWORD:    ${STAGING_FUSEKI_PASSWORD:-datastation-staging-admin}
+      RHADIX_PROFILES_URL: ${STAGING_PROFILES_URL:-}
+      VALIDATION_API_URL: ${VALIDATION_API_URL:-https://app.rhadix.nl}
+    ports:
+      - "${STAGING_BACKEND_PORT:-8017}:8000"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    image: ghcr.io/${GHCR_ORG:-rhadix2026}/datastation-frontend:${STAGING_IMAGE_TAG:-staging}
+    container_name: datastation-staging-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${STAGING_FRONTEND_PORT:-5181}:80"
+
+volumes:
+  pgdata_staging:
+    name: datastation_staging_pgdata
+  fuseki_staging:
+    name: datastation_staging_fuseki

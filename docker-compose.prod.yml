@@ -1,0 +1,87 @@
+# Rhadix Datastation — Productie docker-compose
+# ─────────────────────────────────────────────────────────────────────────────
+# Eigen poorten (5180 / 8016) en eigen volumes (kik_*), gescheiden van staging
+# en van de Rhadix-validation-app. Deployments verlopen via GitHub Actions
+# (deploy-production.yml) met handmatige goedkeuring + automatische rollback.
+#
+# Gebruik op de server:
+#   docker compose -p datastation-prod -f docker-compose.prod.yml --env-file .env.production up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: datastation-db
+    restart: always
+    environment:
+      POSTGRES_USER:     ${DB_USER:-kik}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Stel DB_PASSWORD in in .env.production}
+      POSTGRES_DB:       ${DB_NAME:-datastation}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kik} -d ${DB_NAME:-datastation}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  fuseki:
+    image: stain/jena-fuseki:5.1.0
+    container_name: datastation-fuseki
+    restart: always
+    environment:
+      ADMIN_PASSWORD:   ${FUSEKI_PASSWORD:-datastation-prod-admin}
+      FUSEKI_DATASET_1: kik
+      JVM_ARGS:         -Xmx512m
+    volumes:
+      - fuseki_data:/fuseki
+    # Geen externe poort — alleen intern Docker-netwerk
+
+  backend:
+    image: ghcr.io/${GHCR_ORG:-rhadix2026}/datastation-backend:${KIK_VERSION:-latest}
+    container_name: datastation-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      fuseki:
+        condition: service_started
+    environment:
+      DATABASE_URL:       postgresql://${DB_USER:-kik}:${DB_PASSWORD}@datastation-db:5432/${DB_NAME:-datastation}
+      JWT_SECRET_KEY:     ${JWT_SECRET_KEY:?Stel JWT_SECRET_KEY in als GitHub Secret / .env}
+      KIK_ENV:            production
+      KIK_ADMIN_EMAIL:    ${KIK_ADMIN_EMAIL:-admin@kik-starter.nl}
+      KIK_ADMIN_PASSWORD: ${KIK_ADMIN_PASSWORD:?Stel KIK_ADMIN_PASSWORD in in .env.production}
+      FUSEKI_URL:         http://datastation-fuseki:3030
+      FUSEKI_DATASET:     kik
+      FUSEKI_USER:        admin
+      FUSEKI_PASSWORD:    ${FUSEKI_PASSWORD:-datastation-prod-admin}
+      RHADIX_PROFILES_URL: ${PROFILES_URL:-}
+      VALIDATION_API_URL: ${VALIDATION_API_URL:-https://app.rhadix.nl}
+    ports:
+      - "${BACKEND_PORT:-8016}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    image: ghcr.io/${GHCR_ORG:-rhadix2026}/datastation-frontend:${KIK_VERSION:-latest}
+    container_name: datastation-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5180}:80"
+
+volumes:
+  pgdata:
+    name: datastation_pgdata_prod
+  fuseki_data:
+    name: datastation_fuseki_prod

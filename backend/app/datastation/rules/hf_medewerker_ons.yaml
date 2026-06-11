@@ -1,0 +1,16 @@
+indicator_id: hf_medewerker_ons_count
+name: Medewerkers ONS — aantal uniek
+description: >
+  Aantal unieke medewerkers in het ONS-bronsysteem op basis van identificationNo.
+source_dataset: medewerker_ons.csv
+dayfirst: true
+aggregation:
+  function: nunique
+  field: identificationNo
+tolerance:
+  absolute: 0
+  percentage: 0.0
+tags:
+  - happy_flow
+  - medewerkers
+  - ons

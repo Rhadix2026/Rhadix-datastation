@@ -1,0 +1,158 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Happy Flow — AFAS Profit GET-connector XML-formaten
+# Veldnamen komen overeen met de Profit XML-uitvoer (niet de ONS/AFAS CSV-namen)
+# source_dataset matcht op zowel de echte connectornaam als het voorbeeldbestand
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Profit_Employees (volledig connector) ─────────────────────────────────────
+- indicator_id: hf_profit_employees_count
+  name: Profit Employees — totaal medewerkers
+  description: Totaal aantal medewerkerrecords in de Profit Employees GET-connector.
+  source_dataset: Profit_Employees_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: EmployeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, medewerkers, afas, xml]
+
+- indicator_id: hf_profit_employees_actief
+  name: Profit Employees — actieve medewerkers (geen einddatum)
+  description: Medewerkers zonder EmploymentEnd (nog in dienst).
+  source_dataset: Profit_Employees_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: EmployeeId
+  filters:
+    - field: EmploymentEnd
+      operator: isnull
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, medewerkers, afas, xml]
+
+# ── Profit_Employees_basic (beperkte connector) ────────────────────────────────
+- indicator_id: hf_profit_employees_basic_count
+  name: Profit Employees Basic — totaal
+  description: Totaal aantal medewerkerrecords in de Profit Employees Basic GET-connector.
+  source_dataset: Profit_Employees_basic_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: EmployeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, medewerkers, afas, xml]
+
+- indicator_id: hf_profit_employees_basic_actief
+  name: Profit Employees Basic — actief (DvId=ACTIEF)
+  description: Medewerkers met status ACTIEF in de Profit Employees Basic connector.
+  source_dataset: Profit_Employees_basic_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: EmployeeId
+  filters:
+    - field: DvId
+      operator: eq
+      value: "ACTIEF"
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, medewerkers, afas, xml]
+
+- indicator_id: hf_profit_employees_basic_uniek
+  name: Profit Employees Basic — unieke medewerkers
+  description: Aantal unieke EmployeeId's in de Profit Employees Basic connector.
+  source_dataset: Profit_Employees_basic_150_voorbeeld.xml
+  aggregation:
+    function: nunique
+    field: EmployeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, medewerkers, afas, xml]
+
+# ── Profit_Illness (ziekteverzuim) ────────────────────────────────────────────
+- indicator_id: hf_profit_illness_count
+  name: Profit Illness — totaal verzuimmeldingen
+  description: Totaal aantal ziekteverzuimmeldingen in de Profit Illness GET-connector.
+  source_dataset: Profit_Illness_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: AbsenceId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, verzuim, afas, xml]
+
+- indicator_id: hf_profit_illness_actief
+  name: Profit Illness — lopende verzuimmeldingen (RecoveredCode=OPEN)
+  description: Verzuimmeldingen die nog niet zijn afgesloten (RecoveredCode = OPEN).
+  source_dataset: Profit_Illness_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: AbsenceId
+  filters:
+    - field: RecoveredCode
+      operator: eq
+      value: "OPEN"
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, verzuim, afas, xml]
+
+- indicator_id: hf_profit_illness_unieke_medewerkers
+  name: Profit Illness — unieke medewerkers met verzuim
+  description: Aantal unieke medewerkers (EmployeeId) met een verzuimmelding.
+  source_dataset: Profit_Illness_150_voorbeeld.xml
+  aggregation:
+    function: nunique
+    field: EmployeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, verzuim, afas, xml]
+
+# ── Profit_Timetable (arbeidstijden) ─────────────────────────────────────────
+- indicator_id: hf_profit_timetable_count
+  name: Profit Timetable — totaal contractregels
+  description: Totaal aantal contractregelrecords in de Profit Timetable GET-connector.
+  source_dataset: Profit_Timetable_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: EmployeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, werkovereenkomst, afas, xml]
+
+- indicator_id: hf_profit_timetable_actief
+  name: Profit Timetable — actieve contractregels (geen einddatum)
+  description: Contractregels zonder EndDate (lopend contract).
+  source_dataset: Profit_Timetable_150_voorbeeld.xml
+  aggregation:
+    function: count
+    field: EmployeeId
+  filters:
+    - field: EndDate
+      operator: isnull
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags: [happy_flow, werkovereenkomst, afas, xml]
+
+- indicator_id: hf_profit_timetable_uren_gem
+  name: Profit Timetable — gemiddelde uren per week
+  description: Gemiddeld aantal contracturen per week (HoursPerWeek) over alle actieve contractregels.
+  source_dataset: Profit_Timetable_150_voorbeeld.xml
+  aggregation:
+    function: mean
+    field: HoursPerWeek
+  filters:
+    - field: EndDate
+      operator: isnull
+  tolerance:
+    absolute: 0.5
+    percentage: 2.0
+  tags: [happy_flow, werkovereenkomst, afas, xml]

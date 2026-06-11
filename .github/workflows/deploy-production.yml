@@ -1,0 +1,181 @@
+name: Deploy — Production
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Triggert bij een versie-tag op main (v*.*.*) OF handmatig via workflow_dispatch.
+#
+# VEILIGHEIDSMECHANISMEN:
+#   1. Tests moeten slagen voordat deployment start
+#   2. Verplichte handmatige goedkeuring via GitHub Environment 'production'
+#   3. Deploy gebruikt de exacte versie-tag, nooit alleen :latest
+#   4. Health check + automatische rollback bij mislukking
+#
+# Vereiste GitHub Secrets (naast staging-secrets):
+#   PROD_SSH_KEY, PROD_SSH_HOST, PROD_SSH_USER
+#   PROD_DB_PASSWORD, PROD_JWT_SECRET_KEY, PROD_ADMIN_PASSWORD
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Versie om te deployen (bijv. v0.4.0)"
+        required: true
+        type: string
+
+env:
+  REGISTRY:       ghcr.io
+  BACKEND_IMAGE:  ghcr.io/rhadix2026/datastation-backend
+  FRONTEND_IMAGE: ghcr.io/rhadix2026/datastation-frontend
+
+jobs:
+  test:
+    name: Pytest — backend
+    runs-on: ubuntu-latest
+    env:
+      KIK_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Installeer dependencies
+        working-directory: backend
+        run: pip install -r requirements-dev.txt
+      - name: Voer tests uit
+        working-directory: backend
+        run: pytest tests/ --tb=short -v
+
+  build:
+    name: Build & push productie-images
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bepaal versie-tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.version_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+      - uses: docker/setup-buildx-action@v3
+      - name: Login naar GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          no-cache: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ steps.version.outputs.tag }}
+            ${{ env.BACKEND_IMAGE }}:latest
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          no-cache: true
+          build-args: |
+            VITE_API_URL=
+            VITE_KIK_ENV=production
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.version.outputs.tag }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+
+  deploy:
+    name: Deploy naar productie
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log productie-deployment
+        run: |
+          echo "════════════════════════════════════════"
+          echo "  PRODUCTIE DEPLOYMENT — Rhadix Datastation"
+          echo "  Versie:  ${{ needs.build.outputs.version }}"
+          echo "  Door:    ${{ github.actor }}"
+          echo "  Tijd:    $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "════════════════════════════════════════"
+      - name: Kopieer docker-compose.prod.yml naar server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:     ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key:      ${{ secrets.PROD_SSH_KEY }}
+          source:   docker-compose.prod.yml
+          target:   /opt/datastation-app/
+      - name: Deploy met automatische rollback bij mislukking
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key:      ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            VERSION="${{ needs.build.outputs.version }}"
+            COMPOSE_CMD="docker compose -p datastation-prod -f /opt/datastation-app/docker-compose.prod.yml --env-file /opt/datastation-app/.env.production"
+
+            PREV_VERSION=$(docker inspect datastation-backend --format '{{.Config.Image}}' 2>/dev/null | awk -F: '{print $NF}' || echo "")
+            echo "Vorige versie: ${PREV_VERSION:-onbekend} | Nieuwe versie: $VERSION"
+
+            cat > /opt/datastation-app/.env.production << 'ENVEOF'
+            GHCR_ORG=rhadix2026
+            DB_USER=kik
+            DB_NAME=datastation
+            FRONTEND_PORT=5180
+            BACKEND_PORT=8016
+            KIK_ADMIN_EMAIL=admin@kik-starter.nl
+            ENVEOF
+            echo "KIK_VERSION=$VERSION"                                  >> /opt/datastation-app/.env.production
+            echo "DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}"           >> /opt/datastation-app/.env.production
+            echo "JWT_SECRET_KEY=${{ secrets.PROD_JWT_SECRET_KEY }}"     >> /opt/datastation-app/.env.production
+            echo "KIK_ADMIN_PASSWORD=${{ secrets.PROD_ADMIN_PASSWORD }}" >> /opt/datastation-app/.env.production
+            chmod 600 /opt/datastation-app/.env.production
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            if ! $COMPOSE_CMD pull; then
+              echo "✗ Pull mislukt — containers onaangeroerd, deploy afgebroken"; exit 1
+            fi
+            $COMPOSE_CMD up -d --remove-orphans
+            echo "Containers gestart, health check..."
+
+            HEALTHY=false
+            for i in $(seq 1 18); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8016/api/health 2>/dev/null || echo "000")
+              if [ "$STATUS" = "200" ]; then HEALTHY=true; echo "✓ Productie bereikbaar na poging $i"; break; fi
+              echo "  Poging $i/18 — HTTP $STATUS — wacht 5s..."; sleep 5
+            done
+
+            if [ "$HEALTHY" = "true" ]; then
+              echo "✓ DEPLOY GESLAAGD: $VERSION"; $COMPOSE_CMD ps; exit 0
+            fi
+
+            echo "✗ HEALTH CHECK MISLUKT — AUTOMATISCHE ROLLBACK"
+            docker logs datastation-backend --tail 50 || true
+            if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$VERSION" ] && [ "$PREV_VERSION" != "latest" ]; then
+              echo "Terugzetten naar: $PREV_VERSION"
+              sed -i "s/KIK_VERSION=.*/KIK_VERSION=$PREV_VERSION/" /opt/datastation-app/.env.production
+              $COMPOSE_CMD up -d --remove-orphans
+              sleep 15
+              RB=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8016/api/health 2>/dev/null || echo "000")
+              [ "$RB" = "200" ] && echo "✓ Rollback naar $PREV_VERSION geslaagd" || echo "✗ Rollback ook mislukt (HTTP $RB) — handmatige interventie nodig"
+            else
+              echo "Geen bruikbare vorige versie voor rollback (was: ${PREV_VERSION:-leeg})"
+            fi
+            exit 1

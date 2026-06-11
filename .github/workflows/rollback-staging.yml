@@ -1,0 +1,74 @@
+name: Rollback — Staging
+
+# Handmatig terug naar een eerdere image-tag op staging. Nooit automatisch.
+# Raakt productie NOOIT aan.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image-tag om naar terug te rollen (bijv. v0.3.0)"
+        required: true
+        type: string
+      reason:
+        description: "Reden voor rollback (wordt gelogd)"
+        required: false
+        type: string
+        default: "Handmatige rollback"
+
+jobs:
+  rollback:
+    name: Rollback staging naar ${{ inputs.image_tag }}
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log rollback-actie
+        run: |
+          echo "ROLLBACK STAGING — tag=${{ inputs.image_tag }} reden=${{ inputs.reason }} door=${{ github.actor }}"
+      - name: Controleer of image bestaat op GHCR
+        run: |
+          TAG="${{ inputs.image_tag }}"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          if docker manifest inspect ghcr.io/rhadix2026/datastation-backend:$TAG > /dev/null 2>&1; then
+            echo "✓ Image tag '$TAG' gevonden op GHCR"
+          else
+            echo "✗ Image tag '$TAG' NIET gevonden op GHCR"; exit 1
+          fi
+      - name: Kopieer docker-compose naar server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:     ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key:      ${{ secrets.STAGING_SSH_KEY }}
+          source:   docker-compose.staging.yml
+          target:   /opt/datastation-app/
+      - name: Voer rollback uit op server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key:      ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            TAG="${{ inputs.image_tag }}"
+            sed -i '/^STAGING_IMAGE_TAG=/d' /opt/datastation-app/.env.staging
+            echo "STAGING_IMAGE_TAG=$TAG" >> /opt/datastation-app/.env.staging
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose -p datastation-staging -f /opt/datastation-app/docker-compose.staging.yml --env-file /opt/datastation-app/.env.staging pull
+            docker compose -p datastation-staging -f /opt/datastation-app/docker-compose.staging.yml --env-file /opt/datastation-app/.env.staging up -d --remove-orphans
+            echo "✓ Rollback uitgevoerd naar $TAG"
+      - name: Health check na rollback
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key:      ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            for i in $(seq 1 18); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8017/api/health || echo "000")
+              [ "$STATUS" = "200" ] && { echo "✓ Staging bereikbaar na rollback"; exit 0; }
+              echo "  Poging $i/18 — HTTP $STATUS — wacht 5s..."; sleep 5
+            done
+            docker logs datastation-staging-backend --tail 30 || true; exit 1

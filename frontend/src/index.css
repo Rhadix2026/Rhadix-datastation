@@ -1,0 +1,53 @@
+/* ── Oxanium — lokaal geladen (zelfde look & feel als Rhadix) ────────────── */
+@font-face { font-family:'Oxanium'; src:url('/fonts/Oxanium-ExtraLight.ttf') format('truetype'); font-weight:200; font-display:swap; }
+@font-face { font-family:'Oxanium'; src:url('/fonts/Oxanium-Light.ttf') format('truetype'); font-weight:300; font-display:swap; }
+@font-face { font-family:'Oxanium'; src:url('/fonts/Oxanium-Regular.ttf') format('truetype'); font-weight:400; font-display:swap; }
+@font-face { font-family:'Oxanium'; src:url('/fonts/Oxanium-Medium.ttf') format('truetype'); font-weight:500; font-display:swap; }
+@font-face { font-family:'Oxanium'; src:url('/fonts/Oxanium-SemiBold.ttf') format('truetype'); font-weight:600; font-display:swap; }
+@font-face { font-family:'Oxanium'; src:url('/fonts/Oxanium-Bold.ttf') format('truetype'); font-weight:700; font-display:swap; }
+@font-face { font-family:'Oxanium'; src:url('/fonts/Oxanium-ExtraBold.ttf') format('truetype'); font-weight:800; font-display:swap; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Rhadix brand palette ── */
+  --blue:        #1A2847;
+  --blue-dark:   #0F1A30;
+  --blue-hero:   #1A2847;
+  --blue-light:  #E8F2FA;
+  --blue-mid:    #B8D4EA;
+  --accent:      #6FA8D0;
+  --sub:         #8BADC5;
+
+  --text:  #111827;  --text2: #374151;  --text3: #6b7280;  --text4: #9ca3af;
+  --bg:    #f3f4f6;  --bg2:   #ffffff;   --border:#e5e7eb;  --border2:#d1d5db;
+
+  --green:#16a34a; --green-bg:#f0fdf4; --green-light:#dcfce7;
+  --amber:#d97706; --amber-bg:#fffbeb; --amber-light:#fef3c7;
+  --red:#dc2626;   --red-bg:#fef2f2;   --red-light:#fee2e2;
+
+  --font:'Oxanium', -apple-system, sans-serif;
+  --radius:8px; --radius-lg:12px; --radius-xl:16px;
+  --shadow:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.05);
+}
+
+html, body, #root { height: 100%; }
+body {
+  font-family: var(--font);
+  font-weight: 400;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+button, input, select, textarea { font-family: var(--font); }
+a { color: inherit; text-decoration: none; }
+
+.page-container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }

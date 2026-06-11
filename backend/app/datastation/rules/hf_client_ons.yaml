@@ -1,0 +1,52 @@
+- indicator_id: hf_client_ons_count
+  name: Cliënten ONS — totaal
+  description: >
+    Totaal aantal cliënt-records in ONS (alle statussen).
+  source_dataset: client_ons.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: objectId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - clienten
+    - ons
+
+- indicator_id: hf_client_ons_actief
+  name: Cliënten ONS — actief (open of einddatum in toekomst)
+  description: >
+    Aantal cliënten in ONS waarvan endDate niet ingevuld is of >= 2025-01-01.
+  source_dataset: client_ons.csv
+  dayfirst: true
+  peildatum_field: endDate
+  peildatum: "2025-01-01"
+  aggregation:
+    function: count
+    field: objectId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - clienten
+    - ons
+
+- indicator_id: hf_client_ons_per_wlzprofiel
+  name: Cliënten ONS — unieke Wlz-profielen
+  description: >
+    Aantal unieke Wlz-zorgprofielen bij de cliënten in ONS.
+  source_dataset: client_ons.csv
+  dayfirst: true
+  aggregation:
+    function: nunique
+    field: wlzProfiel
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - clienten
+    - ons

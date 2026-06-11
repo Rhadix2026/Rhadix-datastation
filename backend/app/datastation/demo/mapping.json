@@ -1,0 +1,8 @@
+{
+  "dataset": "medewerkers.csv",
+  "class_uri": "http://purl.org/ozo/onz-pers#Medewerker",
+  "mapping": {
+    "medewerker_id": {"concept_uri": "http://purl.org/ozo/onz-pers#identificatie", "kind": "data", "datatype": "string"},
+    "functie":       {"concept_uri": "http://purl.org/ozo/onz-pers#functie", "kind": "data", "datatype": "string"}
+  }
+}

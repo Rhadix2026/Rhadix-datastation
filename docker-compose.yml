@@ -1,0 +1,68 @@
+# Rhadix Datastation (Rhadix-editie) — lokale ontwikkelstack
+# Start:  docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: datastation-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kik
+      POSTGRES_PASSWORD: kik
+      POSTGRES_DB: datastation
+    volumes:
+      - kik_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kik -d datastation"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  fuseki:
+    image: stain/jena-fuseki:5.1.0
+    container_name: datastation-fuseki
+    restart: unless-stopped
+    environment:
+      ADMIN_PASSWORD: kik-admin
+      FUSEKI_DATASET_1: kik
+      JVM_ARGS: -Xmx512m
+    volumes:
+      - kik_fuseki:/fuseki
+    ports:
+      - "3030:3030"
+
+  backend:
+    build: ./backend
+    container_name: datastation-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      fuseki:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://kik:kik@db:5432/datastation
+      FUSEKI_URL: http://fuseki:3030
+      FUSEKI_DATASET: kik
+      KIK_ENV: development
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-change-me-in-production}
+      KIK_ADMIN_EMAIL: ${KIK_ADMIN_EMAIL:-admin@kik-starter.nl}
+      KIK_ADMIN_PASSWORD: ${KIK_ADMIN_PASSWORD:-KikStarter2026!}
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: datastation-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  kik_pgdata:
+    name: kik_pgdata
+  kik_fuseki:
+    name: kik_fuseki

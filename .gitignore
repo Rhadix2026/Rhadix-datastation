@@ -1,0 +1,19 @@
+# Node
+node_modules/
+frontend/dist/
+# Python
+__pycache__/
+*.pyc
+.venv/
+# Env
+.env
+.env.*
+!.env.*.example
+!.env.example
+# OS
+.DS_Store
+
+# Deploy env-files (bevatten secrets)
+.env
+.env.staging
+.env.production

@@ -1,0 +1,16 @@
+indicator_id: hf_medewerker_afas_count
+name: Medewerkers AFAS HRM — aantal uniek
+description: >
+  Aantal unieke medewerkers in het AFAS HRM-bronsysteem op basis van PersoneelsNummer.
+source_dataset: medewerker_afas_hrm.csv
+dayfirst: true
+aggregation:
+  function: nunique
+  field: PersoneelsNummer
+tolerance:
+  absolute: 0
+  percentage: 0.0
+tags:
+  - happy_flow
+  - medewerkers
+  - afas

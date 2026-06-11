@@ -1,0 +1,71 @@
+- indicator_id: hf_verzuim_ons_count
+  name: Verzuim ONS — totaal registraties
+  description: >
+    Totaal aantal verzuim-registraties in ONS.
+  source_dataset: verzuim_ons.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: employeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - verzuim
+    - ons
+
+- indicator_id: hf_verzuim_ons_actief
+  name: Verzuim ONS — lopend (open of einddatum in toekomst)
+  description: >
+    Aantal lopende verzuimgevallen in ONS (endDate niet ingevuld of >= 2025-01-01).
+  source_dataset: verzuim_ons.csv
+  dayfirst: true
+  peildatum_field: endDate
+  peildatum: "2025-01-01"
+  aggregation:
+    function: count
+    field: employeeId
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - verzuim
+    - ons
+
+- indicator_id: hf_verzuim_afas_count
+  name: Verzuim AFAS HRM — totaal registraties
+  description: >
+    Totaal aantal verzuim-registraties in AFAS HRM.
+  source_dataset: verzuim_afas_hrm.csv
+  dayfirst: true
+  aggregation:
+    function: count
+    field: PersoneelsNummer
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - verzuim
+    - afas
+
+- indicator_id: hf_verzuim_afas_actief
+  name: Verzuim AFAS HRM — lopend (open of einddatum in toekomst)
+  description: >
+    Aantal lopende verzuimgevallen in AFAS HRM (Eindmoment niet ingevuld of >= 2025-01-01).
+  source_dataset: verzuim_afas_hrm.csv
+  dayfirst: true
+  peildatum_field: Eindmoment
+  peildatum: "2025-01-01"
+  aggregation:
+    function: count
+    field: PersoneelsNummer
+  tolerance:
+    absolute: 0
+    percentage: 0.0
+  tags:
+    - happy_flow
+    - verzuim
+    - afas
