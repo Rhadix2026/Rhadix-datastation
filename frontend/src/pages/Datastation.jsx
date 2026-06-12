@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { Page, PageTitle, Card, BtnPrimary, BtnGhost } from '../components/UI'
-import { dsStatus, dsRules, dsLaadTestset, dsReset, dsBeantwoord, dsUpload, dsLaadHappyflow, dsHappyflowOverzicht } from '../services/api'
+import { dsStatus, dsRules, dsLaadTestset, dsReset, dsBeantwoord, dsUpload, dsLaadHappyflow, dsHappyflowOverzicht,
+  dsVragen, dsVraagStats, dsVraagIndienen, dsAccordeer, dsOverschrijf, dsAfwijzen } from '../services/api'
 
 const DEMO_SPARQL = `PREFIX onz-pers: <http://purl.org/ozo/onz-pers#>
 SELECT (COUNT(?m) AS ?n) WHERE {
@@ -28,6 +29,12 @@ export default function Datastation() {
   const [upClass, setUpClass] = useState('http://purl.org/ozo/onz-pers#Medewerker')
   const [upRes, setUpRes] = useState(null)
   const [hf, setHf] = useState(null)
+  const [inbox, setInbox] = useState([])
+  const [verzonden, setVerzonden] = useState([])
+  const [vstats, setVstats] = useState(null)
+  const [ovId, setOvId] = useState(null)
+  const [ovWaarde, setOvWaarde] = useState('')
+  const [ovReden, setOvReden] = useState('')
   const [hfBezig, setHfBezig] = useState(false)
 
   function ververs() {
@@ -35,7 +42,34 @@ export default function Datastation() {
     dsRules().then(setRules).catch(() => {})
   }
   function verversHf() { dsHappyflowOverzicht().then(setHf).catch(() => {}) }
-  useEffect(() => { ververs(); verversHf() }, [])
+  function verversInbox() {
+    dsVragen('open').then(d => setInbox(d.vragen)).catch(() => {})
+    dsVragen('verzonden').then(d => setVerzonden(d.vragen)).catch(() => {})
+    dsVraagStats().then(setVstats).catch(() => {})
+  }
+  useEffect(() => { ververs(); verversHf(); verversInbox() }, [])
+
+  const TESTVRAAG = 'PREFIX kik: <https://kik-v.nl/ns#>\nSELECT (AVG(?w) AS ?waarde) WHERE { ?o a kik:Observatie ; kik:indicator "2.1" ; kik:waarde ?w }'
+  async function stuurTestvraag() {
+    setBezig(true); setFout(null)
+    try { await dsVraagIndienen({ sparql: TESTVRAAG, afnemer: 'Rhadix Uitvraag (test)', indicator_code: '2.1' }); verversInbox() }
+    catch (e) { setFout(e.message) } finally { setBezig(false) }
+  }
+  async function accorderen(id) {
+    setBezig(true); setFout(null)
+    try { await dsAccordeer(id); verversInbox() } catch (e) { setFout(e.message) } finally { setBezig(false) }
+  }
+  function startOverschrijf(v) { setOvId(v.query_id); setOvWaarde(v.berekende_waarde ?? ''); setOvReden('') }
+  async function bevestigOverschrijf() {
+    setBezig(true); setFout(null)
+    try { await dsOverschrijf(ovId, parseFloat(ovWaarde), ovReden); setOvId(null); verversInbox() }
+    catch (e) { setFout(e.message) } finally { setBezig(false) }
+  }
+  async function afwijzen(id) {
+    const reden = window.prompt('Reden van afwijzing (optioneel):') ?? null
+    setBezig(true); setFout(null)
+    try { await dsAfwijzen(id, reden); verversInbox() } catch (e) { setFout(e.message) } finally { setBezig(false) }
+  }
 
   async function laadHappyflow() {
     setHfBezig(true); setFout(null)
@@ -76,6 +110,97 @@ export default function Datastation() {
         <Stat label="RDF-triples" value={status ? status.triples : '—'} />
         <Stat label="Happy-flow regels" value={rules ? rules.aantal : '—'} />
       </div>
+
+      <Card style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ maxWidth: 560 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>📥 Vraag-inbox</div>
+            <div style={{ fontSize: 13, color: 'var(--text3)' }}>Binnengekomen gevalideerde vragen. Het datastation berekent een voorstel-antwoord; de zorgaanbieder <b>accordeert</b>, <b>overschrijft</b> handmatig of <b>wijst af</b>. Pas na verzending haalt de afnemer het resultaat op.</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <BtnGhost onClick={stuurTestvraag} disabled={bezig}>Stuur testvraag</BtnGhost>
+            <BtnGhost onClick={verversInbox} disabled={bezig}>Ververs</BtnGhost>
+          </div>
+        </div>
+        {vstats && (
+          <div style={{ display: 'flex', gap: 18, marginTop: 12, fontSize: 13 }}>
+            <span>Te beoordelen: <b style={{ color: 'var(--amber)' }}>{vstats.te_beoordelen}</b></span>
+            <span>Verzonden: <b style={{ color: 'var(--green)' }}>{vstats.verzonden}</b></span>
+            <span>Afgewezen: <b style={{ color: 'var(--text2)' }}>{vstats.afgewezen}</b></span>
+            <span>Fout: <b style={{ color: 'var(--red)' }}>{vstats.fout}</b></span>
+          </div>
+        )}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>Te beoordelen</div>
+          {inbox.length === 0 && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Geen openstaande vragen. Klik op “Stuur testvraag”.</div>}
+          {inbox.length > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead><tr style={{ color: 'var(--text3)', textAlign: 'left' }}>
+                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Afnemer</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Indicator</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Berekend</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Status</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Acties</th>
+              </tr></thead>
+              <tbody>
+                {inbox.map(v => (
+                  <Fragment key={v.query_id}>
+                    <tr style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '6px 8px', color: 'var(--text)' }}>{v.afnemer || '—'}</td>
+                      <td style={{ padding: '6px 8px', color: 'var(--text3)' }}>{v.indicator_code || '—'}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>{v.berekende_waarde ?? '—'}</td>
+                      <td style={{ padding: '6px 8px' }}><span style={{ color: v.status === 'FOUT' ? 'var(--red)' : 'var(--amber)', fontWeight: 600 }}>{v.status}</span></td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {v.status === 'TE_BEOORDELEN' && <button onClick={() => accorderen(v.query_id)} disabled={bezig} style={{ marginRight: 6, padding: '3px 10px', borderRadius: 6, border: 'none', background: 'var(--green)', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>Accorderen</button>}
+                        <button onClick={() => startOverschrijf(v)} disabled={bezig} style={{ marginRight: 6, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 }}>Overschrijven</button>
+                        <button onClick={() => afwijzen(v.query_id)} disabled={bezig} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--red)', cursor: 'pointer', fontSize: 12 }}>Afwijzen</button>
+                      </td>
+                    </tr>
+                    {ovId === v.query_id && (
+                      <tr style={{ background: 'var(--bg2, #f7f9fc)' }}>
+                        <td colSpan={5} style={{ padding: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 12, color: 'var(--text2)' }}>Handmatige waarde:</span>
+                            <input type="number" value={ovWaarde} onChange={e => setOvWaarde(e.target.value)} style={{ width: 110, padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 13 }} />
+                            <input placeholder="reden / toelichting" value={ovReden} onChange={e => setOvReden(e.target.value)} style={{ flex: 1, minWidth: 180, padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 13 }} />
+                            <BtnPrimary onClick={bevestigOverschrijf} disabled={bezig || ovWaarde === ''}>Verzenden</BtnPrimary>
+                            <BtnGhost onClick={() => setOvId(null)}>Annuleer</BtnGhost>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {verzonden.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>Verzonden</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead><tr style={{ color: 'var(--text3)', textAlign: 'left' }}>
+                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Afnemer</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Indicator</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Definitief</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Wijze</th>
+                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Beoordeeld door</th>
+              </tr></thead>
+              <tbody>
+                {verzonden.map(v => (
+                  <tr key={v.query_id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '6px 8px', color: 'var(--text)' }}>{v.afnemer || '—'}</td>
+                    <td style={{ padding: '6px 8px', color: 'var(--text3)' }}>{v.indicator_code || '—'}</td>
+                    <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>{v.definitieve_waarde ?? '—'}</td>
+                    <td style={{ padding: '6px 8px' }}>{v.handmatig ? <span style={{ color: 'var(--amber)', fontWeight: 600 }}>handmatig</span> : <span style={{ color: 'var(--green)', fontWeight: 600 }}>geaccordeerd</span>}</td>
+                    <td style={{ padding: '6px 8px', color: 'var(--text3)' }}>{v.beoordeeld_door || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card style={{ marginBottom: 18, border: '1.5px solid var(--brand, #2563eb)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>

@@ -100,6 +100,15 @@ export const dsReset       = () => req('POST', '/datastation/reset')
 export const dsBeantwoord  = (sparql) => req('POST', '/datastation/beantwoord', { sparql })
 export const dsLaadHappyflow     = () => req('POST', '/datastation/laad-happyflow')
 export const dsHappyflowOverzicht = () => req('GET', '/datastation/happyflow-overzicht')
+// ── Vraag-inbox ──
+export const dsVraagIndienen = (b) => req('POST', '/datastation/vragen', b)
+export const dsVragen        = (status = 'open') => req('GET', `/datastation/vragen?status=${status}`)
+export const dsVraagStats    = () => req('GET', '/datastation/vragen/stats')
+export const dsVraagDetail   = (id) => req('GET', `/datastation/vragen/${id}`)
+export const dsAccordeer     = (id) => req('POST', `/datastation/vragen/${id}/accordeer`)
+export const dsOverschrijf   = (id, waarde, toelichting) => req('POST', `/datastation/vragen/${id}/overschrijf`, { waarde, toelichting })
+export const dsAfwijzen      = (id, reden) => req('POST', `/datastation/vragen/${id}/wijs-af`, { reden })
+export const dsResultaat     = (id) => req('GET', `/datastation/vragen/${id}/resultaat`)
 
 export async function dsUpload(file, mappingJson, classUri) {
   const fd = new FormData()

@@ -6,6 +6,7 @@ import uuid
 
 from app.database import Base, SessionLocal, engine
 from app.models.auth_models import Tenant, User, UserRole
+from app.models import datastation_models  # noqa: F401  (tabellen registreren)
 from app.auth.security import hash_password
 
 

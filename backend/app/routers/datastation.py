@@ -8,6 +8,10 @@ import pathlib
 import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import datastation_models as dm
 
 from app.auth.dependencies import get_current_user
 from app.models.auth_models import User
@@ -147,6 +151,167 @@ def happyflow_overzicht(current: User = Depends(get_current_user)):
         })
     return {"geladen": bool(_HF_DATA), "aantal": n_totaal, "match": n_match,
             "per_dataset": per_dataset}
+
+
+# ── Vraag-inbox (asynchrone, beoordeelde beantwoording) ───────────────────────
+class VraagIn(BaseModel):
+    sparql: str
+    uitwisselprofiel: str | None = None
+    indicator_code: str | None = None
+    afnemer: str | None = None
+
+
+class OverschrijfIn(BaseModel):
+    waarde: float
+    toelichting: str | None = None
+
+
+class AfwijzenIn(BaseModel):
+    reden: str | None = None
+
+
+def _audit(db: Session, vraag_id, actie: str, details: str | None = None, door: str | None = None) -> None:
+    db.add(dm.DatastationAudit(vraag_id=vraag_id, actie=actie, details=details, door=door))
+
+
+@router.post("/datastation/vragen", status_code=201)
+def vraag_indienen(body: VraagIn, db: Session = Depends(get_db)):
+    """Publiek/server-to-server: een afnemer (Uitvraag) dient een gevalideerde
+    vraag in. Het datastation berekent meteen een voorstel-antwoord; dit wacht
+    vervolgens op beoordeling door de zorgaanbieder voordat het wordt verzonden."""
+    vraag = dm.DatastationVraag(
+        sparql=body.sparql, uitwisselprofiel=body.uitwisselprofiel,
+        indicator_code=body.indicator_code, afnemer=body.afnemer,
+        status=dm.STATUS_TE_BEOORDELEN,
+    )
+    db.add(vraag)
+    db.flush()
+    _audit(db, vraag.id, "ONTVANGEN", f"afnemer={body.afnemer or '-'}")
+    a = STATION.beantwoord(body.sparql)
+    vraag.backend = a.backend
+    if a.status == "OK" and a.waarde is not None:
+        vraag.berekende_waarde = round(float(a.waarde), 4)
+        _audit(db, vraag.id, "BEREKEND", f"waarde={vraag.berekende_waarde} ({a.backend})")
+    else:
+        vraag.status = dm.STATUS_FOUT
+        vraag.toelichting = a.toelichting or "Geen waarde berekend"
+        _audit(db, vraag.id, "BEREKEND", f"status={a.status}: {vraag.toelichting}")
+    db.commit()
+    db.refresh(vraag)
+    return vraag.as_dict()
+
+
+@router.get("/datastation/vragen")
+def vragen_lijst(status: str = "open", db: Session = Depends(get_db),
+                 current: User = Depends(get_current_user)):
+    """Inbox. status=open (te beoordelen+fout), verzonden, afgewezen of alle."""
+    q = db.query(dm.DatastationVraag)
+    if status == "open":
+        q = q.filter(dm.DatastationVraag.status.in_([dm.STATUS_TE_BEOORDELEN, dm.STATUS_FOUT]))
+    elif status == "verzonden":
+        q = q.filter(dm.DatastationVraag.status == dm.STATUS_VERZONDEN)
+    elif status == "afgewezen":
+        q = q.filter(dm.DatastationVraag.status == dm.STATUS_AFGEWEZEN)
+    items = q.order_by(dm.DatastationVraag.ontvangen_op.desc()).all()
+    return {"aantal": len(items), "vragen": [v.as_dict() for v in items]}
+
+
+@router.get("/datastation/vragen/stats")
+def vragen_stats(db: Session = Depends(get_db), current: User = Depends(get_current_user)):
+    from sqlalchemy import func as f
+    rows = db.query(dm.DatastationVraag.status, f.count()).group_by(dm.DatastationVraag.status).all()
+    per = {s: n for s, n in rows}
+    return {
+        "te_beoordelen": per.get(dm.STATUS_TE_BEOORDELEN, 0),
+        "verzonden": per.get(dm.STATUS_VERZONDEN, 0),
+        "afgewezen": per.get(dm.STATUS_AFGEWEZEN, 0),
+        "fout": per.get(dm.STATUS_FOUT, 0),
+    }
+
+
+def _get_vraag(db: Session, vraag_id: str) -> "dm.DatastationVraag":
+    v = db.query(dm.DatastationVraag).filter(dm.DatastationVraag.id == vraag_id).first()
+    if not v:
+        raise HTTPException(404, "Vraag niet gevonden")
+    return v
+
+
+@router.get("/datastation/vragen/{vraag_id}")
+def vraag_detail(vraag_id: str, db: Session = Depends(get_db),
+                 current: User = Depends(get_current_user)):
+    v = _get_vraag(db, vraag_id)
+    d = v.as_dict()
+    d["audit"] = [a.as_dict() for a in v.audit]
+    return d
+
+
+@router.post("/datastation/vragen/{vraag_id}/accordeer")
+def vraag_accorderen(vraag_id: str, db: Session = Depends(get_db),
+                     current: User = Depends(get_current_user)):
+    from sqlalchemy.sql import func as f
+    v = _get_vraag(db, vraag_id)
+    if v.status not in (dm.STATUS_TE_BEOORDELEN,):
+        raise HTTPException(409, f"Vraag is niet te beoordelen (status {v.status})")
+    if v.berekende_waarde is None:
+        raise HTTPException(409, "Geen berekend antwoord om te accorderen")
+    v.definitieve_waarde = v.berekende_waarde
+    v.handmatig = False
+    v.status = dm.STATUS_VERZONDEN
+    v.beoordeeld_op = f.now()
+    v.beoordeeld_door = current.email
+    _audit(db, v.id, "GEACCORDEERD", f"waarde={v.definitieve_waarde}", current.email)
+    db.commit(); db.refresh(v)
+    return v.as_dict()
+
+
+@router.post("/datastation/vragen/{vraag_id}/overschrijf")
+def vraag_overschrijven(vraag_id: str, body: OverschrijfIn, db: Session = Depends(get_db),
+                        current: User = Depends(get_current_user)):
+    from sqlalchemy.sql import func as f
+    v = _get_vraag(db, vraag_id)
+    if v.status not in (dm.STATUS_TE_BEOORDELEN, dm.STATUS_FOUT):
+        raise HTTPException(409, f"Vraag is niet te beoordelen (status {v.status})")
+    v.definitieve_waarde = round(float(body.waarde), 4)
+    v.handmatig = True
+    v.toelichting = body.toelichting
+    v.status = dm.STATUS_VERZONDEN
+    v.beoordeeld_op = f.now()
+    v.beoordeeld_door = current.email
+    _audit(db, v.id, "OVERSCHREVEN",
+           f"waarde={v.definitieve_waarde}; reden={body.toelichting or '-'}", current.email)
+    db.commit(); db.refresh(v)
+    return v.as_dict()
+
+
+@router.post("/datastation/vragen/{vraag_id}/wijs-af")
+def vraag_afwijzen(vraag_id: str, body: AfwijzenIn, db: Session = Depends(get_db),
+                   current: User = Depends(get_current_user)):
+    from sqlalchemy.sql import func as f
+    v = _get_vraag(db, vraag_id)
+    if v.status == dm.STATUS_VERZONDEN:
+        raise HTTPException(409, "Reeds verzonden vraag kan niet worden afgewezen")
+    v.status = dm.STATUS_AFGEWEZEN
+    v.toelichting = body.reden
+    v.beoordeeld_op = f.now()
+    v.beoordeeld_door = current.email
+    _audit(db, v.id, "AFGEWEZEN", body.reden or "-", current.email)
+    db.commit(); db.refresh(v)
+    return v.as_dict()
+
+
+@router.get("/datastation/vragen/{vraag_id}/resultaat")
+def vraag_resultaat(vraag_id: str, db: Session = Depends(get_db)):
+    """Publiek: de afnemer haalt het resultaat op. Pas beschikbaar na verzending."""
+    v = _get_vraag(db, vraag_id)
+    if v.status == dm.STATUS_VERZONDEN:
+        _audit(db, v.id, "OPGEHAALD", f"afnemer={v.afnemer or '-'}")
+        db.commit()
+        return {"query_id": str(v.id), "status": "GEREED",
+                "waarde": v.definitieve_waarde, "handmatig": v.handmatig,
+                "toelichting": v.toelichting, "zaaknummer": str(v.id)}
+    if v.status == dm.STATUS_AFGEWEZEN:
+        return {"query_id": str(v.id), "status": "AFGEWEZEN", "toelichting": v.toelichting}
+    return {"query_id": str(v.id), "status": "IN_BEHANDELING"}
 
 
 @router.post("/datastation/reset")
