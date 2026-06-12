@@ -12,7 +12,23 @@ from app.auth.security import hash_password
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_columns()
     _seed_platform_admin()
+
+
+def _ensure_columns() -> None:
+    """Lichtgewicht migratie: voeg ontbrekende kolommen toe aan bestaande tabellen."""
+    from sqlalchemy import inspect, text
+    wanted = {"datastation_vragen": [("zorgaanbieder", "VARCHAR(255)")]}
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, cols in wanted.items():
+            if not insp.has_table(table):
+                continue
+            existing = {c["name"] for c in insp.get_columns(table)}
+            for name, ddl in cols:
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
 
 

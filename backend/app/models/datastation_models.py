@@ -32,7 +32,8 @@ class DatastationVraag(Base):
     sparql             = Column(Text, nullable=False)
     uitwisselprofiel   = Column(String(255), nullable=True)
     indicator_code     = Column(String(64), nullable=True)
-    afnemer            = Column(String(255), nullable=True)   # wie stelt de vraag
+    afnemer            = Column(String(255), nullable=True)   # wie stelt de vraag (ketenpartij)
+    zorgaanbieder      = Column(String(255), nullable=True)   # voor wie is de vraag bestemd
 
     status             = Column(String(24), nullable=False, default=STATUS_TE_BEOORDELEN, index=True)
     berekende_waarde   = Column(Float, nullable=True)         # wat het datastation uitrekende
@@ -56,6 +57,7 @@ class DatastationVraag(Base):
             "uitwisselprofiel": self.uitwisselprofiel,
             "indicator_code": self.indicator_code,
             "afnemer": self.afnemer,
+            "zorgaanbieder": self.zorgaanbieder,
             "status": self.status,
             "berekende_waarde": self.berekende_waarde,
             "definitieve_waarde": self.definitieve_waarde,

@@ -159,6 +159,7 @@ class VraagIn(BaseModel):
     uitwisselprofiel: str | None = None
     indicator_code: str | None = None
     afnemer: str | None = None
+    zorgaanbieder: str | None = None
 
 
 class OverschrijfIn(BaseModel):
@@ -182,7 +183,7 @@ def vraag_indienen(body: VraagIn, db: Session = Depends(get_db)):
     vraag = dm.DatastationVraag(
         sparql=body.sparql, uitwisselprofiel=body.uitwisselprofiel,
         indicator_code=body.indicator_code, afnemer=body.afnemer,
-        status=dm.STATUS_TE_BEOORDELEN,
+        zorgaanbieder=body.zorgaanbieder, status=dm.STATUS_TE_BEOORDELEN,
     )
     db.add(vraag)
     db.flush()
