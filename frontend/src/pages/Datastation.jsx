@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Page, PageTitle, Card, BtnPrimary, BtnGhost } from '../components/UI'
-import { dsStatus, dsRules, dsLaadTestset, dsReset, dsBeantwoord, dsUpload } from '../services/api'
+import { dsStatus, dsRules, dsLaadTestset, dsReset, dsBeantwoord, dsUpload, dsLaadHappyflow, dsHappyflowOverzicht } from '../services/api'
 
 const DEMO_SPARQL = `PREFIX onz-pers: <http://purl.org/ozo/onz-pers#>
 SELECT (COUNT(?m) AS ?n) WHERE {
@@ -27,13 +27,21 @@ export default function Datastation() {
   const [upMapping, setUpMapping] = useState('{\n  "kolomnaam": {"concept_uri": "http://purl.org/ozo/onz-pers#functie", "kind": "data", "datatype": "string"}\n}')
   const [upClass, setUpClass] = useState('http://purl.org/ozo/onz-pers#Medewerker')
   const [upRes, setUpRes] = useState(null)
+  const [hf, setHf] = useState(null)
+  const [hfBezig, setHfBezig] = useState(false)
 
   function ververs() {
     dsStatus().then(setStatus).catch(e => setFout(e.message))
     dsRules().then(setRules).catch(() => {})
   }
-  useEffect(ververs, [])
+  function verversHf() { dsHappyflowOverzicht().then(setHf).catch(() => {}) }
+  useEffect(() => { ververs(); verversHf() }, [])
 
+  async function laadHappyflow() {
+    setHfBezig(true); setFout(null)
+    try { await dsLaadHappyflow(); ververs(); verversHf() }
+    catch (e) { setFout(e.message) } finally { setHfBezig(false) }
+  }
   async function laden() {
     setBezig(true); setFout(null)
     try { await dsLaadTestset(); ververs() } catch (e) { setFout(e.message) } finally { setBezig(false) }
@@ -68,6 +76,48 @@ export default function Datastation() {
         <Stat label="RDF-triples" value={status ? status.triples : '—'} />
         <Stat label="Happy-flow regels" value={rules ? rules.aantal : '—'} />
       </div>
+
+      <Card style={{ marginBottom: 18, border: '1.5px solid var(--brand, #2563eb)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ maxWidth: 560 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Happy-flow testset</div>
+            <div style={{ fontSize: 13, color: 'var(--text3)' }}>De volledige ingebouwde happy-flow van de digital twin: één fictieve zorgaanbieder over alle referentieontwerpen (cliënten, medewerkers, vestigingen, financieel, AFAS Profit). Per indicator vergelijken we de <b>validatie-berekening</b> op de brondata met het <b>datastation-antwoord</b> via SPARQL op de RDF-store.</div>
+          </div>
+          <BtnPrimary onClick={laadHappyflow} disabled={hfBezig}>{hfBezig ? 'Bezig…' : 'Laad happy-flow testset'}</BtnPrimary>
+        </div>
+        {hf && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 13, color: hf.geladen ? 'var(--green)' : 'var(--text3)', fontWeight: 600, marginBottom: 10 }}>
+              {hf.geladen ? `✓ ${hf.match}/${hf.aantal} indicatoren kloppen — validatie == datastation` : `${hf.aantal} indicatoren · nog niet ingeladen (klik 'Laad happy-flow testset')`}
+            </div>
+            {Object.entries(hf.per_dataset).map(([ds, items]) => (
+              <div key={ds} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', fontFamily: 'monospace', marginBottom: 4 }}>{ds}</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead><tr style={{ color: 'var(--text3)', textAlign: 'left' }}>
+                    <th style={{ padding: '3px 8px', fontWeight: 600 }}>Indicator</th>
+                    <th style={{ padding: '3px 8px', fontWeight: 600 }}>Aggregatie</th>
+                    <th style={{ padding: '3px 8px', fontWeight: 600, textAlign: 'right' }}>Validatie</th>
+                    <th style={{ padding: '3px 8px', fontWeight: 600, textAlign: 'right' }}>Datastation</th>
+                    <th style={{ padding: '3px 8px', fontWeight: 600, textAlign: 'center' }}></th>
+                  </tr></thead>
+                  <tbody>
+                    {items.map(i => (
+                      <tr key={i.indicator_id} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '4px 8px', color: 'var(--text)' }}>{i.name}</td>
+                        <td style={{ padding: '4px 8px', color: 'var(--text3)', fontFamily: 'monospace', fontSize: 12 }}>{i.aggregatie}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{i.validatie ?? '—'}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>{i.datastation ?? '—'}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>{i.match ? <span style={{ color: 'var(--green)' }}>✓</span> : (hf.geladen ? <span style={{ color: 'var(--red)' }}>✗</span> : '')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card style={{ marginBottom: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

@@ -98,6 +98,8 @@ export const dsRules       = () => req('GET', '/datastation/rules')
 export const dsLaadTestset = () => req('POST', '/datastation/laad-testset')
 export const dsReset       = () => req('POST', '/datastation/reset')
 export const dsBeantwoord  = (sparql) => req('POST', '/datastation/beantwoord', { sparql })
+export const dsLaadHappyflow     = () => req('POST', '/datastation/laad-happyflow')
+export const dsHappyflowOverzicht = () => req('GET', '/datastation/happyflow-overzicht')
 
 export async function dsUpload(file, mappingJson, classUri) {
   const fd = new FormData()
