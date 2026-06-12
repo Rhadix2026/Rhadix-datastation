@@ -230,6 +230,27 @@ def vragen_stats(db: Session = Depends(get_db), current: User = Depends(get_curr
     }
 
 
+@router.post("/datastation/vragen/accordeer-alles")
+def accorderen_alles(db: Session = Depends(get_db), current: User = Depends(get_current_user)):
+    """Accordeer in één keer alle te-beoordelen vragen met een berekend antwoord."""
+    from sqlalchemy.sql import func as f
+    vs = (db.query(dm.DatastationVraag)
+          .filter(dm.DatastationVraag.status == dm.STATUS_TE_BEOORDELEN,
+                  dm.DatastationVraag.berekende_waarde.isnot(None))
+          .all())
+    n = 0
+    for v in vs:
+        v.definitieve_waarde = v.berekende_waarde
+        v.handmatig = False
+        v.status = dm.STATUS_VERZONDEN
+        v.beoordeeld_op = f.now()
+        v.beoordeeld_door = current.email
+        _audit(db, v.id, "GEACCORDEERD", f"waarde={v.definitieve_waarde} (bulk)", current.email)
+        n += 1
+    db.commit()
+    return {"geaccordeerd": n}
+
+
 def _get_vraag(db: Session, vraag_id: str) -> "dm.DatastationVraag":
     v = db.query(dm.DatastationVraag).filter(dm.DatastationVraag.id == vraag_id).first()
     if not v:

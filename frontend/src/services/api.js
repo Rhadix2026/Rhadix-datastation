@@ -108,6 +108,7 @@ export const dsVraagDetail   = (id) => req('GET', `/datastation/vragen/${id}`)
 export const dsAccordeer     = (id) => req('POST', `/datastation/vragen/${id}/accordeer`)
 export const dsOverschrijf   = (id, waarde, toelichting) => req('POST', `/datastation/vragen/${id}/overschrijf`, { waarde, toelichting })
 export const dsAfwijzen      = (id, reden) => req('POST', `/datastation/vragen/${id}/wijs-af`, { reden })
+export const dsAccordeerAlles = () => req('POST', '/datastation/vragen/accordeer-alles')
 export const dsResultaat     = (id) => req('GET', `/datastation/vragen/${id}/resultaat`)
 
 export async function dsUpload(file, mappingJson, classUri) {

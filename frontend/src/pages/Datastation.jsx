@@ -1,7 +1,7 @@
 import { useEffect, useState, Fragment } from 'react'
 import { Page, PageTitle, Card, BtnPrimary, BtnGhost } from '../components/UI'
 import { dsStatus, dsRules, dsLaadTestset, dsReset, dsBeantwoord, dsUpload, dsLaadHappyflow, dsHappyflowOverzicht,
-  dsVragen, dsVraagStats, dsVraagIndienen, dsAccordeer, dsOverschrijf, dsAfwijzen } from '../services/api'
+  dsVragen, dsVraagStats, dsVraagIndienen, dsAccordeer, dsOverschrijf, dsAfwijzen, dsAccordeerAlles } from '../services/api'
 
 const DEMO_SPARQL = `PREFIX onz-pers: <http://purl.org/ozo/onz-pers#>
 SELECT (COUNT(?m) AS ?n) WHERE {
@@ -58,6 +58,10 @@ export default function Datastation() {
   async function accorderen(id) {
     setBezig(true); setFout(null)
     try { await dsAccordeer(id); verversInbox() } catch (e) { setFout(e.message) } finally { setBezig(false) }
+  }
+  async function accorderenAlles() {
+    setBezig(true); setFout(null)
+    try { await dsAccordeerAlles(); verversInbox() } catch (e) { setFout(e.message) } finally { setBezig(false) }
   }
   function startOverschrijf(v) { setOvId(v.query_id); setOvWaarde(v.berekende_waarde ?? ''); setOvReden('') }
   async function bevestigOverschrijf() {
@@ -119,6 +123,7 @@ export default function Datastation() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <BtnGhost onClick={stuurTestvraag} disabled={bezig}>Stuur testvraag</BtnGhost>
+            {inbox.some(v => v.status === 'TE_BEOORDELEN') && <BtnPrimary onClick={accorderenAlles} disabled={bezig}>✓ Alles accorderen</BtnPrimary>}
             <BtnGhost onClick={verversInbox} disabled={bezig}>Ververs</BtnGhost>
           </div>
         </div>
