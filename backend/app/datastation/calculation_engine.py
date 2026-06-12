@@ -36,37 +36,54 @@ _AFAS_DATE_COMPACT = re.compile(r"^\d{8}$")          # 20200303
 _AFAS_DATETIME_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}T")  # 2026-04-19T00:00:00
 
 
+def _records_container(root: "ET.Element") -> "ET.Element":
+    """Bepaal het element dat de herhaalde record-elementen bevat.
+
+    Twee AFAS-exportvarianten:
+      • named export   : <Profit_Employees><Employee>…  → records staan onder root
+      • GET-connector  : <root><skip/><take/><rows><row>… → records onder <rows>
+    """
+    rows_el = root.find("rows")
+    if rows_el is not None and len(list(rows_el)) > 0:
+        return rows_el
+    return root
+
+
 def _parse_afas_xml(source: io.BytesIO) -> pd.DataFrame:
     """Parseer AFAS Profit XML naar een pandas DataFrame.
-    De root-tag bevat herhaalde record-tags; elke record wordt één rij.
-    Lege elementen worden None. Datumvelden worden herkend en omgezet.
+
+    Ondersteunt zowel het named-export-formaat (<Profit_Employees><Employee>)
+    als het GET-connector-formaat (<root><rows><row>). Lege elementen — ook
+    die met attribuut nil="true" — worden None. Datumvelden worden herkend.
     """
     source.seek(0)
     tree = ET.parse(source)
     root = tree.getroot()
+    container = _records_container(root)
 
     rows = []
-    for record in root:          # directe children van root = records
+    for record in container:        # record-elementen (Employee / row)
         row: dict = {}
-        for field_el in record:  # children van record = velden
+        for field_el in record:     # children van record = velden
+            tag = field_el.tag
             text = field_el.text
-            if text is None or text.strip() == "":
-                row[field_el.tag] = None
+            is_nil = (field_el.get("nil") or "").lower() == "true"
+            if is_nil or text is None or text.strip() == "":
+                row[tag] = None
             elif _AFAS_DATE_COMPACT.match(text.strip()):
-                # 20200303 → pd.Timestamp
                 try:
-                    row[field_el.tag] = pd.to_datetime(text.strip(), format="%Y%m%d")
+                    row[tag] = pd.to_datetime(text.strip(), format="%Y%m%d")
                 except Exception:
-                    row[field_el.tag] = text.strip()
+                    row[tag] = text.strip()
             elif _AFAS_DATETIME_ISO.match(text.strip()):
-                # 2026-04-19T00:00:00 → pd.Timestamp
                 try:
-                    row[field_el.tag] = pd.to_datetime(text.strip())
+                    row[tag] = pd.to_datetime(text.strip())
                 except Exception:
-                    row[field_el.tag] = text.strip()
+                    row[tag] = text.strip()
             else:
-                row[field_el.tag] = text.strip()
-        rows.append(row)
+                row[tag] = text.strip()
+        if row:
+            rows.append(row)
 
     if not rows:
         return pd.DataFrame()
