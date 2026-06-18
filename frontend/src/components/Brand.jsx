@@ -1,3 +1,4 @@
+import { brandLogo, currentBrand } from '../brand'
 // ─── Rhadix Uitvraag wordmerk (eigen SVG, in de Rhadix-huisstijl) ────────────
 // Eigen merk binnen de Rhadix-familie: zelfde look & feel (navy + accentblauw,
 // Oxanium), maar herkenbaar als de uitvraag-app voor ketenpartijen.
@@ -30,15 +31,22 @@ export function UitvraagLogo({ size = 34, color = '#fff', onClick }) {
         background: 'none', border: 'none', cursor: onClick ? 'pointer' : 'default', padding: 0,
       }}
     >
-      <UitvraagMark size={size} />
-      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1 }}>
-        <span style={{ fontWeight: 800, fontSize: 18, color, letterSpacing: '-0.01em' }}>
-          Rhadix<span style={{ color: 'var(--accent)' }}> </span>Datastation
-        </span>
-        <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--accent)', letterSpacing: '2px', textTransform: 'uppercase' }}>
-          KIK-V
-        </span>
-      </span>
+      {currentBrand() === 'suresync'
+        ? <>
+            <img src={brandLogo()} alt="SureSync" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color, letterSpacing: '.5px' }}>Datastation</span>
+          </>
+        : <>
+            <UitvraagMark size={size} />
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1 }}>
+              <span style={{ fontWeight: 800, fontSize: 18, color, letterSpacing: '-0.01em' }}>
+                Rhadix<span style={{ color: 'var(--accent)' }}> </span>Datastation
+              </span>
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--accent)', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                KIK-V
+              </span>
+            </span>
+          </>}
     </button>
   )
 }

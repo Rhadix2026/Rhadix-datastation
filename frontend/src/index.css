@@ -51,3 +51,15 @@ button, input, select, textarea { font-family: var(--font); }
 a { color: inherit; text-decoration: none; }
 
 .page-container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+
+/* ── SureSync white-label palet (uit logo: violet #7344F3 + navy #101948) —
+   alleen actief bij data-brand=suresync (staging-demo). ── */
+:root[data-brand="suresync"] {
+  --blue:        #7344F3;
+  --blue-dark:   #0B1233;
+  --blue-hero:   #101948;
+  --blue-light:  #EDE9FE;
+  --blue-mid:    #C4B5FD;
+  --accent:      #7344F3;
+}
