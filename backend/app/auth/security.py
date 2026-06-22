@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import jwt
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-insecure-change-me")
@@ -49,3 +49,24 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def decode_access_token(token: str) -> dict:
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+
+# ── Centrale identiteit (SureSync ID) — accepteer RS256-tokens via publieke sleutel ──
+CENTRAL_PUBLIC_KEY = os.getenv("CENTRAL_JWT_PUBLIC_KEY")
+CENTRAL_ISSUER     = os.getenv("CENTRAL_JWT_ISSUER", "suresync-id")
+
+
+def token_alg(token: str) -> str:
+    try:
+        return jwt.get_unverified_header(token).get("alg", ALGORITHM)
+    except Exception:
+        return ALGORITHM
+
+
+def decode_central_token(token: str) -> dict:
+    if not CENTRAL_PUBLIC_KEY:
+        raise JWTError("central public key not configured")
+    claims = jwt.decode(token, CENTRAL_PUBLIC_KEY, algorithms=["RS256"], options={"verify_aud": False})
+    if claims.get("iss") != CENTRAL_ISSUER:
+        raise JWTError("issuer mismatch")
+    return claims
