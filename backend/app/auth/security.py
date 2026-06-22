@@ -52,7 +52,21 @@ def decode_access_token(token: str) -> dict:
 
 
 # ── Centrale identiteit (SureSync ID) — accepteer RS256-tokens via publieke sleutel ──
-CENTRAL_PUBLIC_KEY = os.getenv("CENTRAL_JWT_PUBLIC_KEY")
+def _load_key(name: str):
+    v = os.getenv(name)
+    if not v:
+        return None
+    v = v.strip()
+    if "BEGIN" in v:
+        return v
+    try:
+        import base64
+        return base64.b64decode(v).decode("utf-8")
+    except Exception:
+        return v
+
+
+CENTRAL_PUBLIC_KEY = _load_key("CENTRAL_JWT_PUBLIC_KEY")
 CENTRAL_ISSUER     = os.getenv("CENTRAL_JWT_ISSUER", "suresync-id")
 
 
