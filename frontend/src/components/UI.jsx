@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { UitvraagLogo } from './Brand'
+import { currentBrand, toggleBrand } from '../brand'
 
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 export function Nav({ authUser, onLogout, links = [] }) {
@@ -11,7 +12,16 @@ export function Nav({ authUser, onLogout, links = [] }) {
       justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100,
       boxShadow: '0 2px 12px rgba(0,0,0,.25)',
     }}>
-      <UitvraagLogo onClick={() => navigate('/')} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <UitvraagLogo onClick={() => navigate('/')} />
+        {import.meta.env.VITE_KIK_ENV === 'staging' && (
+          <button onClick={toggleBrand} title="White-label demo (alleen staging)" style={{
+            background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.35)',
+            borderRadius: 99, padding: '5px 14px', cursor: 'pointer',
+            fontSize: 12.5, color: '#fff', fontFamily: 'var(--font)', fontWeight: 700,
+          }}>{currentBrand() === 'suresync' ? '← Rhadix' : 'SureSync ↗'}</button>
+        )}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {links.map(l => (
           <Link key={l.to} to={l.to} style={_navBtn}>{l.label}</Link>

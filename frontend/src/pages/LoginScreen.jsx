@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { UitvraagLogo, UitvraagMark } from '../components/Brand'
+import ConstellationBg from '../components/ConstellationBg'
+import { currentBrand } from '../brand'
 
 // "Home" = het Rhadix-applicatieportaal.
 const PORTAL_URL = 'https://app.rhadix.nl'
@@ -35,7 +37,7 @@ export default function LoginScreen({ onLogin }) {
       {/* ── Links — branding ── */}
       <div style={{
         flex: 1, background: 'var(--blue-hero)', display: 'flex', flexDirection: 'column',
-        position: 'relative', overflow: 'hidden',
+        position: 'relative', overflow: 'hidden', isolation: 'isolate',
       }}>
         {/* Logo linksboven — klikbaar, terug naar het portaal */}
         <div style={{ padding: '32px 48px 0', flexShrink: 0 }}>
@@ -55,9 +57,11 @@ export default function LoginScreen({ onLogin }) {
             Brondata wordt afgebeeld op KIK-V-concepten (RDF) en gevalideerde vragen worden lokaal berekend — de data verlaat de bron niet.
           </p>
         </div>
-        <div style={{ position: 'absolute', bottom: -40, right: -30, opacity: 0.12, transform: 'scale(7)' }}>
-          <UitvraagMark size={40} />
-        </div>
+        {currentBrand() === 'suresync'
+          ? <ConstellationBg style={{ zIndex: -1 }} />
+          : <div style={{ position: 'absolute', bottom: -40, right: -30, opacity: 0.12, transform: 'scale(7)' }}>
+              <UitvraagMark size={40} />
+            </div>}
       </div>
 
       {/* ── Rechts — loginform ── */}
