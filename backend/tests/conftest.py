@@ -14,7 +14,7 @@ _fd, _DB_PATH = tempfile.mkstemp(suffix=".db")
 os.close(_fd)
 os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH}"
 os.environ.setdefault("KIK_ADMIN_EMAIL", "admin@rhadix.nl")
-os.environ.setdefault("KIK_ADMIN_PASSWORD", "Rhadixvalidatie26!")
+os.environ.setdefault("KIK_ADMIN_PASSWORD", "Rhadixvoordezorg26!")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app                   # noqa: E402
@@ -34,6 +34,6 @@ def client():
 @pytest.fixture(scope="session")
 def auth(client):
     r = client.post("/api/auth/login",
-                    json={"email": "admin@rhadix.nl", "password": "Rhadixvalidatie26!"})
+                    json={"email": "admin@rhadix.nl", "password": "Rhadixvoordezorg26!"})
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
