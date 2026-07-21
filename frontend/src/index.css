@@ -63,3 +63,22 @@ a { color: inherit; text-decoration: none; }
   --blue-mid:    #C4B5FD;
   --accent:      #7344F3;
 }
+
+/* ── KIK-V demo-skin (roze-voorwaarts, conform kik-v-publicatieplatform.nl, thema #bd285f).
+   Alleen buiten productie via ?brand=kikv; staat na de andere blokken zodat merk wint. ── */
+:root[data-brand="kikv"] {
+  --blue:        #bd285f;   /* KIK-V roze — primair / CTA / links / actief */
+  --blue-dark:   #9e2050;   /* dieper roze (hover) */
+  --blue-hero:   #2e6896;   /* blauw nav/hero-frame */
+  --blue-light:  #fae3ec;   /* lichte roze-tint (vlakken) */
+  --blue-mid:    #e4a9bf;   /* mid roze (badges) */
+  --accent:      #bd285f;   /* roze accent */
+  --sub:         #aec4d5;   /* licht blauw (subtitels op de blauwe nav) */
+  --font:        Verdana, Geneva, Tahoma, sans-serif;
+  --kikv-yellow: #fad94c;
+  --kikv-pink:   #bd285f;
+}
+:root[data-brand="kikv"] body::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 1000;
+  background: linear-gradient(90deg, var(--kikv-yellow) 0%, var(--kikv-pink) 100%);
+}

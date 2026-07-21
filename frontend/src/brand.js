@@ -3,6 +3,7 @@
 export const BRANDS = {
   rhadix:   { name: 'Rhadix',   logo: '/rhadix-logo.jpg' },
   suresync: { name: 'SureSync', logo: '/suresync-logo-light.svg' },
+  kikv:     { name: 'KIK-V',    logo: '/kikv-logo.png' },
 }
 export function currentBrand() {
   try { return document.documentElement.dataset.brand || 'rhadix' } catch { return 'rhadix' }
@@ -12,13 +13,16 @@ export function brandLogo() {
   return b.logo
 }
 export function applyInitialBrand() {
+  // Alt-skins (suresync/kikv) alleen buiten productie; productie blijft Rhadix.
+  const isProd = (import.meta?.env?.VITE_RHADIX_ENV === 'production')
+  const allowed = isProd ? ['rhadix'] : ['rhadix', 'suresync', 'kikv']
   let key = 'rhadix'
   try {
     const p = new URLSearchParams(window.location.search).get('brand')
-    if (p === 'suresync' || p === 'rhadix') key = p
+    if (allowed.includes(p)) key = p
     else {
       const s = sessionStorage.getItem('rhadix:brand')
-      if (s === 'suresync' || s === 'rhadix') key = s
+      if (allowed.includes(s)) key = s
     }
     sessionStorage.setItem('rhadix:brand', key)
     document.documentElement.dataset.brand = key
