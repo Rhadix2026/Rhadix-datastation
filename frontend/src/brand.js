@@ -2,7 +2,6 @@
 // SureSync-kleuren uit officieel logo: violet #7344F3 + navy #101948.
 export const BRANDS = {
   rhadix:   { name: 'Rhadix',   logo: '/rhadix-logo.jpg' },
-  suresync: { name: 'SureSync', logo: '/suresync-logo-light.svg' },
   kikv:     { name: 'KIK-V',    logo: '/kikv-logo.png' },
 }
 export function currentBrand() {
@@ -15,7 +14,7 @@ export function brandLogo() {
 export function applyInitialBrand() {
   // Alt-skins (suresync/kikv) alleen buiten productie; productie blijft Rhadix.
   const isProd = (import.meta?.env?.VITE_RHADIX_ENV === 'production')
-  const allowed = isProd ? ['rhadix'] : ['rhadix', 'suresync', 'kikv']
+  const allowed = isProd ? ['rhadix'] : ['rhadix', 'kikv']
   let key = 'rhadix'
   try {
     const p = new URLSearchParams(window.location.search).get('brand')
@@ -29,7 +28,7 @@ export function applyInitialBrand() {
   } catch { /* ignore */ }
 }
 export function toggleBrand() {
-  const next = currentBrand() === 'suresync' ? 'rhadix' : 'suresync'
+  const next = currentBrand() === 'kikv' ? 'rhadix' : 'kikv'
   try {
     sessionStorage.setItem('rhadix:brand', next)
     const u = new URL(window.location.href); u.searchParams.set('brand', next)

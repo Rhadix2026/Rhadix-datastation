@@ -31,12 +31,7 @@ export function UitvraagLogo({ size = 34, color = '#fff', onClick }) {
         background: 'none', border: 'none', cursor: onClick ? 'pointer' : 'default', padding: 0,
       }}
     >
-      {currentBrand() === 'suresync'
-        ? <>
-            <img src={brandLogo()} alt="SureSync" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
-            <span style={{ fontSize: 13, fontWeight: 700, color, letterSpacing: '.5px' }}>Datastation</span>
-          </>
-        : <>
+      {<>
             <UitvraagMark size={size} />
             <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1 }}>
               <span style={{ fontWeight: 800, fontSize: 18, color, letterSpacing: '-0.01em' }}>

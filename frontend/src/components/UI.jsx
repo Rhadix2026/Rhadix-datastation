@@ -19,7 +19,7 @@ export function Nav({ authUser, onLogout, links = [] }) {
             background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.35)',
             borderRadius: 99, padding: '5px 14px', cursor: 'pointer',
             fontSize: 12.5, color: '#fff', fontFamily: 'var(--font)', fontWeight: 700,
-          }}>{currentBrand() === 'suresync' ? '← Rhadix' : 'SureSync ↗'}</button>
+          }}>{currentBrand() === 'kikv' ? '← Rhadix' : 'KIK-V ↗'}</button>
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -90,7 +90,7 @@ export function Card({ children, style = {}, onClick }) {
 export function BtnPrimary({ children, onClick, disabled, type = 'button', style: sx = {} }) {
   return (
     <button type={type} onClick={disabled ? undefined : onClick} disabled={disabled} style={{
-      background: disabled ? '#93c5fd' : 'var(--blue)', color: '#fff', border: 'none',
+      background: disabled ? 'var(--k-blue-mid)' : 'var(--blue)', color: '#fff', border: 'none',
       borderRadius: 'var(--radius)', padding: '10px 20px', fontSize: 14, fontWeight: 600,
       cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'var(--font)',
       display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'background .15s', ...sx,

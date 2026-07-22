@@ -207,7 +207,7 @@ export default function Datastation() {
         )}
       </Card>
 
-      <Card style={{ marginBottom: 18, border: '1.5px solid var(--brand, #2563eb)' }}>
+      <Card style={{ marginBottom: 18, border: '1.5px solid var(--brand, var(--k-blue))' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ maxWidth: 560 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Happy-flow testset</div>

@@ -10,6 +10,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  --k-blue:#3b82f6; --k-blue-strong:#1d4ed8; --k-blue-light:#eff6ff; --k-blue-mid:#bfdbfe;
   /* ── Rhadix brand palette ── */
   --blue:        #1A2847;
   --blue-dark:   #0F1A30;
@@ -53,16 +54,6 @@ a { color: inherit; text-decoration: none; }
 .page-container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
 
 
-/* ── SureSync white-label palet (uit logo: violet #7344F3 + navy #101948) —
-   alleen actief bij data-brand=suresync (staging-demo). ── */
-:root[data-brand="suresync"] {
-  --blue:        #7344F3;
-  --blue-dark:   #0B1233;
-  --blue-hero:   #101948;
-  --blue-light:  #EDE9FE;
-  --blue-mid:    #C4B5FD;
-  --accent:      #7344F3;
-}
 
 /* ── KIK-V demo-skin (roze-voorwaarts, conform kik-v-publicatieplatform.nl, thema #bd285f).
    Alleen buiten productie via ?brand=kikv; staat na de andere blokken zodat merk wint. ── */
@@ -77,6 +68,7 @@ a { color: inherit; text-decoration: none; }
   --font:        Verdana, Geneva, Tahoma, sans-serif;
   --kikv-yellow: #fad94c;
   --kikv-pink:   #bd285f;
+  --k-blue:#bd285f; --k-blue-strong:#9e2050; --k-blue-light:#fae3ec; --k-blue-mid:#e4a9bf;
 }
 :root[data-brand="kikv"] body::before {
   content: ""; position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 1000;
