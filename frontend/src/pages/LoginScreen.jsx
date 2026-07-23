@@ -57,11 +57,9 @@ export default function LoginScreen({ onLogin }) {
             Brondata wordt afgebeeld op KIK-V-concepten (RDF) en gevalideerde vragen worden lokaal berekend — de data verlaat de bron niet.
           </p>
         </div>
-        {currentBrand() === 'suresync'
-          ? <ConstellationBg style={{ zIndex: -1 }} />
-          : <div style={{ position: 'absolute', bottom: -40, right: -30, opacity: 0.12, transform: 'scale(7)' }}>
+        <div style={{ position: 'absolute', bottom: -40, right: -30, opacity: 0.12, transform: 'scale(7)' }}>
               <UitvraagMark size={40} />
-            </div>}
+            </div>
       </div>
 
       {/* ── Rechts — loginform ── */}
@@ -95,7 +93,7 @@ export default function LoginScreen({ onLogin }) {
           </label>
 
           {showForgot && (
-            <div style={{ padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 'var(--radius)', fontSize: 13, color: '#1d4ed8', lineHeight: 1.55 }}>
+            <div style={{ padding: '12px 14px', background: 'var(--k-blue-light)', border: '1px solid var(--k-blue-mid)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--k-blue-strong)', lineHeight: 1.55 }}>
               <strong>Wachtwoord vergeten?</strong><br />
               Neem contact op met de beheerder van uw organisatie. Die kan via het beheerpaneel een nieuw wachtwoord voor u instellen.
             </div>
