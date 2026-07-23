@@ -93,6 +93,7 @@ jobs:
           build-args: |
             VITE_API_URL=
             VITE_KIK_ENV=production
+            VITE_APP_VERSION=${{ github.ref_name }}
           tags: |
             ${{ env.FRONTEND_IMAGE }}:${{ steps.version.outputs.tag }}
             ${{ env.FRONTEND_IMAGE }}:latest

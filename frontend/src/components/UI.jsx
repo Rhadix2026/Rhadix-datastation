@@ -57,6 +57,9 @@ export function Nav({ authUser, onLogout, links = [] }) {
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', fontWeight: 500 }}>
               {authUser.name || authUser.email}
             </span>
+            <span title="Applicatieversie" style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', fontFamily: 'var(--font)', whiteSpace: 'nowrap' }}>
+              {import.meta.env.VITE_APP_VERSION || 'dev'}
+            </span>
             {onLogout && (
               <button onClick={onLogout} style={{
                 background: 'none', border: 'none', cursor: 'pointer',

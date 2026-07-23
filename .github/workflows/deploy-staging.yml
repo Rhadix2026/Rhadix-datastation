@@ -71,6 +71,7 @@ jobs:
           build-args: |
             VITE_API_URL=
             VITE_KIK_ENV=staging
+            VITE_APP_VERSION=staging-${{ github.run_number }}
           tags: ${{ env.FRONTEND_IMAGE }}:staging
           cache-from: type=gha,scope=frontend
           cache-to:   type=gha,scope=frontend,mode=max
