@@ -22,11 +22,23 @@ function EnvBanner() {
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null)
+  const [booting, setBooting]   = useState(true)
 
   useEffect(() => {
     const onUnauth = () => setAuthUser(null)
     window.addEventListener('rhadix:unauthorized', onUnauth)
     return () => window.removeEventListener('rhadix:unauthorized', onUnauth)
+  }, [])
+
+  // SSO-bootstrap: probeer bij het laden automatisch in te loggen via het
+  // centrale rhadix_sso-cookie (same-origin -> cookie gaat mee). Geen sessie -> loginscherm.
+  useEffect(() => {
+    let alive = true
+    getMe()
+      .then(me => { if (alive) setAuthUser({ ...me, name: me.full_name || me.email }) })
+      .catch(() => {})
+      .finally(() => { if (alive) setBooting(false) })
+    return () => { alive = false }
   }, [])
 
   async function handleLogin(email, password) {
@@ -36,6 +48,7 @@ export default function App() {
   }
   function handleLogout() { clearAuthToken(); setAuthUser(null) }
 
+  if (booting) return (<><EnvBanner /><div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)' }}>Bezig met inloggen…</div></>)
   if (!authUser) return (<><EnvBanner /><LoginScreen onLogin={handleLogin} /></>)
 
   const isPlatform = authUser.role === 'PLATFORM_ADMIN'
