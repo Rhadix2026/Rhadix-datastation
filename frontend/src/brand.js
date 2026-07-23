@@ -17,13 +17,9 @@ export function applyInitialBrand() {
   const allowed = isProd ? ['rhadix'] : ['rhadix', 'kikv']
   let key = 'rhadix'
   try {
+    // Navy (Rhadix) is standaard; KIK-V alleen via expliciete ?brand=kikv (demo), blijft niet plakken.
     const p = new URLSearchParams(window.location.search).get('brand')
     if (allowed.includes(p)) key = p
-    else {
-      const s = sessionStorage.getItem('rhadix:brand')
-      if (allowed.includes(s)) key = s
-    }
-    sessionStorage.setItem('rhadix:brand', key)
     document.documentElement.dataset.brand = key
   } catch { /* ignore */ }
 }
