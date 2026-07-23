@@ -1,6 +1,7 @@
 """dependencies.py — auth/authorisatie dependencies."""
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Optional
 
@@ -59,7 +60,7 @@ def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
     db: Session = Depends(get_db),
 ) -> User:
-    token = credentials.credentials if credentials else request.cookies.get("rhadix_sso")
+    token = credentials.credentials if credentials else request.cookies.get(os.getenv("SSO_COOKIE_NAME", "rhadix_sso"))
     if not token:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Niet geauthenticeerd",
                             headers={"WWW-Authenticate": "Bearer"})
