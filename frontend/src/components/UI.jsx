@@ -2,6 +2,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { UitvraagLogo } from './Brand'
 import { currentBrand, toggleBrand } from '../brand'
 
+// Terug-naar-platform: naar het portaal 'kies een applicatie' (env-afhankelijk).
+function _platformUrl() {
+  if (import.meta.env.VITE_PLATFORM_URL) return import.meta.env.VITE_PLATFORM_URL
+  const stag = typeof location !== 'undefined' && location.hostname.includes('staging')
+  return stag ? 'https://app-staging.rhadix.nl' : 'https://app.rhadix.nl'
+}
+
+
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 export function Nav({ authUser, onLogout, links = [] }) {
   const navigate = useNavigate()
@@ -14,6 +22,18 @@ export function Nav({ authUser, onLogout, links = [] }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <UitvraagLogo onClick={() => navigate('/')} />
+        <button onClick={() => navigate(-1)} title="Terug" style={{
+          background: 'rgba(255,255,255,.22)', border: '1.5px solid rgba(255,255,255,.7)',
+          borderRadius: 'var(--radius)', padding: '5px 14px', cursor: 'pointer',
+          fontSize: 13, color: '#fff', fontFamily: 'var(--font)', fontWeight: 700,
+          letterSpacing: '.03em', display: 'flex', alignItems: 'center', gap: 4,
+        }}>← Terug</button>
+        <button onClick={() => { window.location.href = _platformUrl() }} title="Terug naar platform — kies een applicatie" style={{
+          background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.28)',
+          borderRadius: 'var(--radius)', padding: '5px 12px', cursor: 'pointer',
+          fontSize: 12.5, color: '#fff', fontFamily: 'var(--font)', fontWeight: 700,
+          letterSpacing: '.02em', display: 'flex', alignItems: 'center', gap: 5,
+        }}>▦ Platform</button>
         {import.meta.env.VITE_KIK_ENV === 'staging' && (
           <button onClick={toggleBrand} title="White-label demo (alleen staging)" style={{
             background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.35)',
