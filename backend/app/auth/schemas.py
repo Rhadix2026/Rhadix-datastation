@@ -24,6 +24,7 @@ class UserResponse(BaseModel):
     role: UserRole
     tenant_id: str
     tenant_name: str
+    branding: Optional[dict] = None
 
 
 class PasswordChangeRequest(BaseModel):

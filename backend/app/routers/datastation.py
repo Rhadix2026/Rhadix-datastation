@@ -16,7 +16,7 @@ from app.models import datastation_models as dm
 from app.auth.dependencies import get_current_user
 from app.models.auth_models import User
 from app.datastation import rdf_store
-from app.datastation.store import STATION
+from app.datastation.store import STATION, zorg_voor_observatie
 from app.datastation.rule_engine import RuleEngine
 from app.datastation import happyflow as hf
 
@@ -158,6 +158,7 @@ class VraagIn(BaseModel):
     sparql: str
     uitwisselprofiel: str | None = None
     indicator_code: str | None = None
+    indicator_label: str | None = None
     afnemer: str | None = None
     zorgaanbieder: str | None = None
 
@@ -182,12 +183,17 @@ def vraag_indienen(body: VraagIn, db: Session = Depends(get_db)):
     vervolgens op beoordeling door de zorgaanbieder voordat het wordt verzonden."""
     vraag = dm.DatastationVraag(
         sparql=body.sparql, uitwisselprofiel=body.uitwisselprofiel,
-        indicator_code=body.indicator_code, afnemer=body.afnemer,
-        zorgaanbieder=body.zorgaanbieder, status=dm.STATUS_TE_BEOORDELEN,
+        indicator_code=body.indicator_code, indicator_label=body.indicator_label,
+        afnemer=body.afnemer, zorgaanbieder=body.zorgaanbieder,
+        status=dm.STATUS_TE_BEOORDELEN,
     )
     db.add(vraag)
     db.flush()
     _audit(db, vraag.id, "ONTVANGEN", f"afnemer={body.afnemer or '-'}")
+    # Lazy: zorg dat er twin-observatiedata is voor deze indicator (ongeacht profiel),
+    # zodat de gevalideerde vraag een waarde oplevert i.p.v. 0.
+    if body.indicator_code:
+        zorg_voor_observatie(body.indicator_code)
     a = STATION.beantwoord(body.sparql)
     vraag.backend = a.backend
     if a.status == "OK" and a.waarde is not None:

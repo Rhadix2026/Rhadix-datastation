@@ -43,6 +43,7 @@ class Datastation:
     def reset(self) -> None:
         self._graph = None
         self._datasets = {}
+        _SEEDED_CODES.clear()
 
     def laad_dataset(self, naam: str, records: list[dict], mapping: dict,
                      class_uri: Optional[str] = None, id_field: Optional[str] = None) -> int:
@@ -102,28 +103,57 @@ class Datastation:
 STATION = Datastation()
 
 
-def seed_twin(codes=None) -> None:
-    """Twin-demo: kik:Observatie-data zodat de gevalideerde vraag vanuit Uitvraag
-    (AVG over kik:waarde per kik:indicator) een echt antwoord oplevert. Idempotent."""
+# Reeds geseede indicator-codes (procesniveau, idempotent over aanroepen heen).
+# Wordt geleegd bij Datastation.reset().
+_SEEDED_CODES: set[str] = set()
+
+
+def _seed_observaties(codes) -> int:
+    """Voeg idempotent kik:Observatie-demodata toe voor de gegeven indicator-codes.
+
+    Elke code krijgt 4 deterministische observaties; de gevalideerde vraag vanuit
+    Uitvraag (AVG over kik:waarde per kik:indicator) levert daarmee een antwoord op.
+    Al geseede codes worden overgeslagen; de node-URI's zijn deterministisch, dus
+    herhaald seeden is sowieso lossless."""
     import hashlib
     from rdflib import Graph, Literal, Namespace, URIRef
     from rdflib.namespace import RDF, XSD
-    if STATION.triple_count > 0:
-        return
+    nieuw = [c for c in dict.fromkeys(codes) if c and c not in _SEEDED_CODES]
+    if not nieuw:
+        return 0
+    KIK = Namespace("https://kik-v.nl/ns#")
+    g = Graph(); g.bind("kik", KIK)
+    n = 0
+    for code in nieuw:
+        h = int(hashlib.sha256(str(code).encode()).hexdigest(), 16)
+        safe = "".join(ch if ch.isalnum() else "_" for ch in str(code))
+        for k in range(4):
+            v = round(((h >> (k * 7)) % 1000) / 10.0 + 5, 1)
+            node = URIRef(f"http://rhadix.nl/twin/o_{safe}_{k}")
+            g.add((node, RDF.type, KIK.Observatie))
+            g.add((node, KIK.indicator, Literal(code)))                 # plain literal
+            g.add((node, KIK.waarde, Literal(v, datatype=XSD.decimal)))
+        _SEEDED_CODES.add(code)
+        n += 4
+    STATION.laad_graph("twin_observaties", g, len(_SEEDED_CODES) * 4)
+    return n
+
+
+def seed_twin(codes=None) -> None:
+    """Twin-demo bij opstart: basis kik:Observatie-data zodat een gevalideerde vraag
+    vanuit Uitvraag een antwoord oplevert. Idempotent. Codes buiten deze basisset
+    worden lazy bijgeseed zodra ze binnenkomen (zie zorg_voor_observatie)."""
     if codes is None:
         codes = ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7",
                  "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7",
                  "3.1", "3.2", "3.3",
                  "PERS_RATIO", "ZIEKTEVERZUIM", "MEDEWERKERS", "CLIENT_TEVREDENHEID"]
-    KIK = Namespace("https://kik-v.nl/ns#")
-    g = Graph(); g.bind("kik", KIK)
-    i = 0; n = 0
-    for code in codes:
-        h = int(hashlib.sha256(code.encode()).hexdigest(), 16)
-        for k in range(4):
-            v = round(((h >> (k * 7)) % 1000) / 10.0 + 5, 1)
-            node = URIRef(f"http://rhadix.nl/twin/o{i}"); i += 1; n += 1
-            g.add((node, RDF.type, KIK.Observatie))
-            g.add((node, KIK.indicator, Literal(code)))                 # plain literal
-            g.add((node, KIK.waarde, Literal(v, datatype=XSD.decimal)))
-    STATION.laad_graph("twin_observaties", g, n)
+    _seed_observaties(codes)
+
+
+def zorg_voor_observatie(code) -> None:
+    """Lazy seeding: zorg dat er kik:Observatie-demodata bestaat voor deze
+    indicator-code, ongeacht welk uitwisselprofiel de afnemer gebruikt. Idempotent.
+    Hiermee levert elke indicator die Uitvraag kan sturen een waarde op i.p.v. 0."""
+    if code:
+        _seed_observaties([code])

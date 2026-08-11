@@ -2,6 +2,11 @@
 
 Lees dit bestand aan het begin van elke sessie. Werk de sessie-log bij aan het eind.
 
+> **Git-workflow:** de centrale werkinstructies in `~/Developer/CLAUDE.md` zijn leidend.
+> Kort: `staging` is de ontwikkel- en integratiebranch; nooit rechtstreeks werken op of
+> pushen naar `main`; merge naar `main` en elke productie-deploy alleen na expliciet
+> akkoord van de gebruiker. Dit bestand bevat alleen repo-specifieke kennis.
+
 ## Project
 Het federatieve **KIK-V-datastation** in de Rhadix-stack: brondata van een
 zorgaanbieder wordt lokaal afgebeeld op KIK-V-concepten (RDF), in een triple store
@@ -23,7 +28,10 @@ Datavalidatie/Uitvraag.
 | `staging` | Staging | 5181 / 8017 | push = automatisch |
 | `v*.*.*` tag op `main` | Productie (`datastation.rhadix.nl`) | 5180 / 8016 | GitHub Actions + handmatige goedkeuring |
 
-- Werk in `/tmp`-clone (niet de gemounte map). Na merge naar main ook staging uitlijnen.
+- Ontwikkelen gebeurt op `staging`. Een merge naar `main` en het pushen van een
+  `v*.*.*`-tag (= productie-deploy) uitsluitend na expliciete review en akkoord van de
+  gebruiker — zie `~/Developer/CLAUDE.md`.
+- Werk in `/tmp`-clone (niet de gemounte map) wanneer lock-file-problemen optreden.
 - Deploy-workflow schrijft zelf `.env.production` op de server uit secrets
   (`PROD_DB_PASSWORD`, `PROD_JWT_SECRET_KEY`, `PROD_ADMIN_PASSWORD`, `PROD_SSH_*`).
 - `VALIDATION_API_URL=https://app.rhadix.nl` (koppeling met Datavalidatie).

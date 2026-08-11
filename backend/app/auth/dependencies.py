@@ -52,6 +52,8 @@ def _provision_from_claims(claims: dict, db: Session) -> User:
         if name and user.full_name != name: user.full_name = name; changed = True
     if changed:
         db.commit(); db.refresh(user)
+    # Branding uit het centrale token als transient meegeven aan /auth/me (niet opgeslagen).
+    user._branding = claims.get("branding")
     return user
 
 
