@@ -158,6 +158,7 @@ class VraagIn(BaseModel):
     sparql: str
     uitwisselprofiel: str | None = None
     indicator_code: str | None = None
+    indicator_label: str | None = None
     afnemer: str | None = None
     zorgaanbieder: str | None = None
 
@@ -182,8 +183,9 @@ def vraag_indienen(body: VraagIn, db: Session = Depends(get_db)):
     vervolgens op beoordeling door de zorgaanbieder voordat het wordt verzonden."""
     vraag = dm.DatastationVraag(
         sparql=body.sparql, uitwisselprofiel=body.uitwisselprofiel,
-        indicator_code=body.indicator_code, afnemer=body.afnemer,
-        zorgaanbieder=body.zorgaanbieder, status=dm.STATUS_TE_BEOORDELEN,
+        indicator_code=body.indicator_code, indicator_label=body.indicator_label,
+        afnemer=body.afnemer, zorgaanbieder=body.zorgaanbieder,
+        status=dm.STATUS_TE_BEOORDELEN,
     )
     db.add(vraag)
     db.flush()
