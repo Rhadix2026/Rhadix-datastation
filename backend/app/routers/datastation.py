@@ -16,7 +16,7 @@ from app.models import datastation_models as dm
 from app.auth.dependencies import get_current_user
 from app.models.auth_models import User
 from app.datastation import rdf_store
-from app.datastation.store import STATION
+from app.datastation.store import STATION, zorg_voor_observatie
 from app.datastation.rule_engine import RuleEngine
 from app.datastation import happyflow as hf
 
@@ -188,6 +188,10 @@ def vraag_indienen(body: VraagIn, db: Session = Depends(get_db)):
     db.add(vraag)
     db.flush()
     _audit(db, vraag.id, "ONTVANGEN", f"afnemer={body.afnemer or '-'}")
+    # Lazy: zorg dat er twin-observatiedata is voor deze indicator (ongeacht profiel),
+    # zodat de gevalideerde vraag een waarde oplevert i.p.v. 0.
+    if body.indicator_code:
+        zorg_voor_observatie(body.indicator_code)
     a = STATION.beantwoord(body.sparql)
     vraag.backend = a.backend
     if a.status == "OK" and a.waarde is not None:
