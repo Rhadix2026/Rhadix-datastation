@@ -36,6 +36,12 @@ export default function Datastation() {
   const [ovWaarde, setOvWaarde] = useState('')
   const [ovReden, setOvReden] = useState('')
   const [hfBezig, setHfBezig] = useState(false)
+  const [ingeklaptUP, setIngeklaptUP] = useState(() => new Set())   // ingeklapte profiel-groepen in de inbox
+  const [archiefOpen, setArchiefOpen] = useState(false)             // afgeronde (verzonden) vragen: archief, standaard dicht
+
+  function toggleUP(up) {
+    setIngeklaptUP(prev => { const n = new Set(prev); n.has(up) ? n.delete(up) : n.add(up); return n })
+  }
 
   function ververs() {
     dsStatus().then(setStatus).catch(e => setFout(e.message))
@@ -138,51 +144,70 @@ export default function Datastation() {
         <div style={{ marginTop: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>Te beoordelen</div>
           {inbox.length === 0 && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Geen openstaande vragen. Klik op “Stuur testvraag”.</div>}
-          {inbox.length > 0 && (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead><tr style={{ color: 'var(--text3)', textAlign: 'left' }}>
-                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Afnemer</th>
-                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Indicator</th>
-                <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Berekend</th>
-                <th style={{ padding: '4px 8px', fontWeight: 600 }}>Status</th>
-                <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Acties</th>
-              </tr></thead>
-              <tbody>
-                {inbox.map(v => (
-                  <Fragment key={v.query_id}>
-                    <tr style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ padding: '6px 8px', color: 'var(--text)' }}>{v.afnemer || '—'}</td>
-                      <td style={{ padding: '6px 8px', color: 'var(--text3)' }}>{v.indicator_code || '—'}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>{v.berekende_waarde ?? '—'}</td>
-                      <td style={{ padding: '6px 8px' }}><span style={{ color: v.status === 'FOUT' ? 'var(--red)' : 'var(--amber)', fontWeight: 600 }}>{v.status}</span></td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {v.status === 'TE_BEOORDELEN' && <button onClick={() => accorderen(v.query_id)} disabled={bezig} style={{ marginRight: 6, padding: '3px 10px', borderRadius: 6, border: 'none', background: 'var(--green)', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>Accorderen</button>}
-                        <button onClick={() => startOverschrijf(v)} disabled={bezig} style={{ marginRight: 6, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 }}>Overschrijven</button>
-                        <button onClick={() => afwijzen(v.query_id)} disabled={bezig} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--red)', cursor: 'pointer', fontSize: 12 }}>Afwijzen</button>
-                      </td>
-                    </tr>
-                    {ovId === v.query_id && (
-                      <tr style={{ background: 'var(--bg2, #f7f9fc)' }}>
-                        <td colSpan={5} style={{ padding: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 12, color: 'var(--text2)' }}>Handmatige waarde:</span>
-                            <input type="number" value={ovWaarde} onChange={e => setOvWaarde(e.target.value)} style={{ width: 110, padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 13 }} />
-                            <input placeholder="reden / toelichting" value={ovReden} onChange={e => setOvReden(e.target.value)} style={{ flex: 1, minWidth: 180, padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 13 }} />
-                            <BtnPrimary onClick={bevestigOverschrijf} disabled={bezig || ovWaarde === ''}>Verzenden</BtnPrimary>
-                            <BtnGhost onClick={() => setOvId(null)}>Annuleer</BtnGhost>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {inbox.length > 0 && Object.entries(
+            inbox.reduce((g, v) => { const up = v.uitwisselprofiel || 'Overig (geen profiel)'; (g[up] ||= []).push(v); return g }, {})
+          ).map(([up, items]) => {
+            const dicht = ingeklaptUP.has(up)
+            return (
+              <div key={up} style={{ marginBottom: 10, border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                <div onClick={() => toggleUP(up)} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none', padding: '10px 12px', background: 'var(--bg2, #f7f9fc)' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text3)', transition: 'transform .15s', transform: dicht ? 'none' : 'rotate(90deg)' }}>▸</span>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{up}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 99, background: 'var(--blue-light)', color: 'var(--blue)', whiteSpace: 'nowrap' }}>{items.length} indicator{items.length === 1 ? '' : 'en'}</span>
+                </div>
+                {!dicht && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead><tr style={{ color: 'var(--text3)', textAlign: 'left' }}>
+                      <th style={{ padding: '4px 8px', fontWeight: 600 }}>Afnemer</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600 }}>Indicator</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Berekend</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600 }}>Status</th>
+                      <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Acties</th>
+                    </tr></thead>
+                    <tbody>
+                      {items.map(v => (
+                        <Fragment key={v.query_id}>
+                          <tr style={{ borderTop: '1px solid var(--border)' }}>
+                            <td style={{ padding: '6px 8px', color: 'var(--text)' }}>{v.afnemer || '—'}</td>
+                            <td style={{ padding: '6px 8px', color: 'var(--text3)' }}>{v.indicator_code || '—'}</td>
+                            <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>{v.berekende_waarde ?? '—'}</td>
+                            <td style={{ padding: '6px 8px' }}><span style={{ color: v.status === 'FOUT' ? 'var(--red)' : 'var(--amber)', fontWeight: 600 }}>{v.status}</span></td>
+                            <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              {v.status === 'TE_BEOORDELEN' && <button onClick={() => accorderen(v.query_id)} disabled={bezig} style={{ marginRight: 6, padding: '3px 10px', borderRadius: 6, border: 'none', background: 'var(--green)', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>Accorderen</button>}
+                              <button onClick={() => startOverschrijf(v)} disabled={bezig} style={{ marginRight: 6, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 }}>Overschrijven</button>
+                              <button onClick={() => afwijzen(v.query_id)} disabled={bezig} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--red)', cursor: 'pointer', fontSize: 12 }}>Afwijzen</button>
+                            </td>
+                          </tr>
+                          {ovId === v.query_id && (
+                            <tr style={{ background: 'var(--bg2, #f7f9fc)' }}>
+                              <td colSpan={5} style={{ padding: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 12, color: 'var(--text2)' }}>Handmatige waarde:</span>
+                                  <input type="number" value={ovWaarde} onChange={e => setOvWaarde(e.target.value)} style={{ width: 110, padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 13 }} />
+                                  <input placeholder="reden / toelichting" value={ovReden} onChange={e => setOvReden(e.target.value)} style={{ flex: 1, minWidth: 180, padding: '4px 8px', borderRadius: 6, border: '1.5px solid var(--border)', fontSize: 13 }} />
+                                  <BtnPrimary onClick={bevestigOverschrijf} disabled={bezig || ovWaarde === ''}>Verzenden</BtnPrimary>
+                                  <BtnGhost onClick={() => setOvId(null)}>Annuleer</BtnGhost>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )
+          })}
         </div>
         {verzonden.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>Verzonden</div>
+            <div onClick={() => setArchiefOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: 'var(--text3)', transition: 'transform .15s', transform: archiefOpen ? 'rotate(90deg)' : 'none' }}>▸</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Archief</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 99, background: 'var(--border)', color: 'var(--text2)' }}>{verzonden.length} afgerond</span>
+            </div>
+            {archiefOpen && (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead><tr style={{ color: 'var(--text3)', textAlign: 'left' }}>
                 <th style={{ padding: '4px 8px', fontWeight: 600 }}>Afnemer</th>
@@ -203,6 +228,7 @@ export default function Datastation() {
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         )}
       </Card>
