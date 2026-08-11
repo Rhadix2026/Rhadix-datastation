@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Nav } from './components/UI'
 import { login as apiLogin, getMe, clearAuthToken } from './services/api'
+import { applyBranding } from './brand'
 import LoginScreen      from './pages/LoginScreen'
 import Home             from './pages/Home'
 import Datastation      from './pages/Datastation'
@@ -35,7 +36,7 @@ export default function App() {
   useEffect(() => {
     let alive = true
     getMe()
-      .then(me => { if (alive) setAuthUser({ ...me, name: me.full_name || me.email }) })
+      .then(me => { if (alive) { applyBranding(me.branding); setAuthUser({ ...me, name: me.full_name || me.email }) } })
       .catch(() => {})
       .finally(() => { if (alive) setBooting(false) })
     return () => { alive = false }
@@ -44,6 +45,7 @@ export default function App() {
   async function handleLogin(email, password) {
     await apiLogin(email, password)
     const me = await getMe()
+    applyBranding(me.branding)
     setAuthUser({ ...me, name: me.full_name || me.email })
   }
   function handleLogout() { clearAuthToken(); setAuthUser(null) }
