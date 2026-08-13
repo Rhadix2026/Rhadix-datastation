@@ -61,6 +61,10 @@ services:
       SSO_COOKIE_NAME:        rhadix_sso_staging
       KIK_ADMIN_EMAIL:    ${STAGING_ADMIN_EMAIL:-admin@kik-starter.nl}
       KIK_ADMIN_PASSWORD: ${STAGING_ADMIN_PASSWORD:?Stel STAGING_ADMIN_PASSWORD in in .env.staging}
+      # Lokale wachtwoord-login: standaard UIT, authenticatie verloopt via SSO
+      # (Datavalidatie als identity provider). Expliciet doorgegeven zodat hij als
+      # noodrem aan te zetten is zonder release: LOCAL_LOGIN_ENABLED=1 in .env.staging.
+      LOCAL_LOGIN_ENABLED: ${LOCAL_LOGIN_ENABLED:-0}
       FUSEKI_URL:         http://datastation-staging-fuseki:3030
       FUSEKI_DATASET:     kik
       FUSEKI_USER:        admin

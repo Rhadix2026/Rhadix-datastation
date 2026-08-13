@@ -1,6 +1,13 @@
-"""auth/router.py — login, profiel, wachtwoord wijzigen."""
+"""auth/router.py — login, profiel, wachtwoord wijzigen.
+
+Authenticatie verloopt via SSO: Rhadix Datavalidatie is de centrale identity
+provider en geeft een RS256-token uit dat deze app valideert (zie
+auth/dependencies.py). Lokale wachtwoord-authenticatie is een pre-SSO-restant en
+staat standaard UIT; zet LOCAL_LOGIN_ENABLED=1 om hem tijdelijk te heropenen.
+"""
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,8 +22,28 @@ from app.models.auth_models import User
 router = APIRouter(tags=["auth"])
 
 
+def local_login_enabled() -> bool:
+    """Lokale wachtwoord-authenticatie: standaard uit, per omgeving aan te zetten."""
+    return os.getenv("LOCAL_LOGIN_ENABLED", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _require_local_login() -> None:
+    """Blokkeer wachtwoord-routes zolang lokale login uitstaat.
+
+    Bewust vóór elke wachtwoordvergelijking, zodat er niets wordt geverifieerd en
+    er geen verschil in responstijd ontstaat tussen bestaande en onbekende accounts.
+    """
+    if not local_login_enabled():
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Lokale wachtwoord-login is uitgeschakeld. Authenticatie verloopt via SSO "
+            "(Rhadix Datavalidatie).",
+        )
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
+    _require_local_login()
     user = db.query(User).filter(User.email == body.email.lower().strip(), User.is_active == True).first()
     if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Onjuist e-mailadres of wachtwoord")
@@ -42,6 +69,7 @@ def me(current_user: User = Depends(get_current_user)):
 @router.patch("/me/password", status_code=204)
 def change_password(body: PasswordChangeRequest, current_user: User = Depends(get_current_user),
                     db: Session = Depends(get_db)):
+    _require_local_login()
     if not current_user.password_hash or not verify_password(body.current_password, current_user.password_hash):
         raise HTTPException(400, "Huidig wachtwoord is onjuist")
     try:
