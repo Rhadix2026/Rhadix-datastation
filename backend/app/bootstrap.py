@@ -13,6 +13,7 @@ from app.auth.security import hash_password
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_columns()
+    _ensure_platform_tenant()
     _seed_platform_admin()
 
 
@@ -33,30 +34,43 @@ def _ensure_columns() -> None:
 
 
 
-def _seed_platform_admin() -> None:
-    """Reset de auth en zet één vaste test-admin neer.
+def _ensure_platform_tenant() -> uuid.UUID:
+    """Borg de platform-tenant. Functioneel nodig als thuisbasis van de beheerder.
 
-    Tijdelijke testopzet: alle bestaande gebruikers worden bij startup verwijderd
-    en er blijft precies één platform-admin over. De inloggegevens zijn bewust in
-    de app gebakken zodat testen makkelijker is; met AUTH_RESET=0 sla je dit over.
+    Losgekoppeld van het aanmaken van gebruikersaccounts: de tenant-bootstrap moet
+    altijd draaien, het seeden van een account is een aparte keuze.
     """
-    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        tenant = db.query(Tenant).filter(Tenant.slug == "platform").first()
+        if not tenant:
+            tenant = Tenant(id=uuid.uuid4(), slug="platform", name="Rhadix Platform", is_active=True)
+            db.add(tenant)
+            db.commit()
+            db.refresh(tenant)
+        return tenant.id
+    finally:
+        db.close()
 
+
+def _seed_platform_admin() -> None:
+    """Borg de vaste platform-admin — NIET-DESTRUCTIEF.
+
+    Raakt andere gebruikers niet aan. Eerder werd hier bij elke start
+    `TRUNCATE TABLE users RESTART IDENTITY CASCADE` uitgevoerd, waardoor de hele
+    gebruikerstabel bij iedere deploy of herstart werd gewist — inclusief de
+    gebruikers die via SSO just-in-time waren aangemaakt. Dat gedrag is verwijderd;
+    JIT-gebruikers blijven nu bestaan over herstarts heen.
+
+    Met AUTH_RESET=0 wordt het seeden overgeslagen.
+    """
     email = "admin@rhadix.nl"
     password = "Rhadixvoordezorg26!"
-    do_reset = os.getenv("AUTH_RESET", "1").lower() not in ("0", "false", "no")
+    if os.getenv("AUTH_RESET", "1").lower() in ("0", "false", "no"):
+        return
 
     db = SessionLocal()
     try:
-        if do_reset:
-            try:
-                db.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE"))
-                db.commit()
-            except Exception:
-                db.rollback()
-                db.execute(text("DELETE FROM users"))
-                db.commit()
-
         tenant = db.query(Tenant).filter(Tenant.slug == "platform").first()
         if not tenant:
             tenant = Tenant(id=uuid.uuid4(), slug="platform", name="Rhadix Platform", is_active=True)
