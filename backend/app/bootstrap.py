@@ -1,20 +1,26 @@
-"""bootstrap.py — tabellen aanmaken en een platform-admin seeden."""
+"""bootstrap.py — tabellen aanmaken en de platform-tenant borgen.
+
+Gebruikers worden NIET meer geseed. Authenticatie verloopt via SSO: Rhadix
+Datavalidatie geeft het centrale token uit en deze app provisioneert gebruikers
+just-in-time (zie auth/dependencies.py). Een lokaal adminaccount met een in de
+code gebakken wachtwoord heeft daardoor geen functie meer.
+
+Bestaande accounts blijven staan: deze module maakt, wijzigt en verwijdert geen
+gebruikers.
+"""
 from __future__ import annotations
 
-import os
 import uuid
 
 from app.database import Base, SessionLocal, engine
-from app.models.auth_models import Tenant, User, UserRole
+from app.models.auth_models import Tenant
 from app.models import datastation_models  # noqa: F401  (tabellen registreren)
-from app.auth.security import hash_password
 
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_columns()
     _ensure_platform_tenant()
-    _seed_platform_admin()
 
 
 def _ensure_columns() -> None:
@@ -35,10 +41,11 @@ def _ensure_columns() -> None:
 
 
 def _ensure_platform_tenant() -> uuid.UUID:
-    """Borg de platform-tenant. Functioneel nodig als thuisbasis van de beheerder.
+    """Borg de platform-tenant.
 
-    Losgekoppeld van het aanmaken van gebruikersaccounts: de tenant-bootstrap moet
-    altijd draaien, het seeden van een account is een aparte keuze.
+    Functioneel nodig als thuisbasis binnen dit datastation. Volledig losgekoppeld
+    van gebruikersaccounts: deze functie raakt de users-tabel niet aan. Gebruikers
+    ontstaan uitsluitend via SSO/JIT-provisioning.
     """
     db = SessionLocal()
     try:
@@ -51,49 +58,3 @@ def _ensure_platform_tenant() -> uuid.UUID:
         return tenant.id
     finally:
         db.close()
-
-
-def _seed_platform_admin() -> None:
-    """Borg de vaste platform-admin — NIET-DESTRUCTIEF.
-
-    Raakt andere gebruikers niet aan. Eerder werd hier bij elke start
-    `TRUNCATE TABLE users RESTART IDENTITY CASCADE` uitgevoerd, waardoor de hele
-    gebruikerstabel bij iedere deploy of herstart werd gewist — inclusief de
-    gebruikers die via SSO just-in-time waren aangemaakt. Dat gedrag is verwijderd;
-    JIT-gebruikers blijven nu bestaan over herstarts heen.
-
-    Met AUTH_RESET=0 wordt het seeden overgeslagen.
-    """
-    email = "admin@rhadix.nl"
-    password = "Rhadixvoordezorg26!"
-    if os.getenv("AUTH_RESET", "1").lower() in ("0", "false", "no"):
-        return
-
-    db = SessionLocal()
-    try:
-        tenant = db.query(Tenant).filter(Tenant.slug == "platform").first()
-        if not tenant:
-            tenant = Tenant(id=uuid.uuid4(), slug="platform", name="Rhadix Platform", is_active=True)
-            db.add(tenant)
-            db.flush()
-
-        admin = db.query(User).filter(User.email == email).first()
-        if admin:
-            admin.password_hash = hash_password(password)
-            admin.is_active = True
-            admin.role = UserRole.PLATFORM_ADMIN
-            admin.tenant_id = tenant.id
-        else:
-            db.add(User(
-                id=uuid.uuid4(), tenant_id=tenant.id, email=email,
-                full_name="Platformbeheerder", password_hash=hash_password(password),
-                role=UserRole.PLATFORM_ADMIN, is_active=True,
-            ))
-        db.commit()
-    except Exception:
-        db.rollback()
-    finally:
-        db.close()
-
-
-

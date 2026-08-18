@@ -111,3 +111,57 @@ def test_jit_maakt_nieuwe_gebruiker_ook_na_herstart(client):
     r = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200, r.text
     assert _get_user("na-herstart@test.rhadix.nl") is not None
+
+
+# ── Bootstrap raakt gebruikers in het geheel niet meer ───────────────────────
+def test_bootstrap_maakt_geen_gebruikers_aan(client, auth):
+    """Een herstart voegt geen enkel account toe — ook geen bootstrap-admin."""
+    client.get("/api/auth/me", headers=auth)          # zorg voor een JIT-gebruiker
+    voor = _users_count()
+
+    init_db()
+
+    assert _users_count() == voor, "de bootstrap heeft accounts toegevoegd of verwijderd"
+
+
+def test_bootstrap_reset_geen_wachtwoorden(client, auth):
+    """Een herstart raakt wachtwoord-hashes niet aan.
+
+    Eerder zette de bootstrap bij elke start het in de code gebakken wachtwoord op
+    het adminaccount. Dat is verwijderd; een bestaande hash blijft nu ongemoeid.
+    """
+    from app.auth.security import hash_password
+    from app.models.auth_models import UserRole
+
+    db = SessionLocal()
+    try:
+        bestaand = User(email="handmatig@test.rhadix.nl", full_name="Handmatig account",
+                        password_hash=hash_password("EenEigenWachtwoord1!"),
+                        role=UserRole.ORG_ADMIN, is_active=True,
+                        tenant_id=_ensure_platform_tenant())
+        db.add(bestaand)
+        db.commit()
+        hash_voor = bestaand.password_hash
+        rol_voor = bestaand.role
+    finally:
+        db.close()
+
+    init_db()
+
+    na = _get_user("handmatig@test.rhadix.nl")
+    assert na is not None, "een bestaand account is verdwenen"
+    assert na.password_hash == hash_voor, "de bootstrap heeft een wachtwoord gereset"
+    assert na.role == rol_voor, "de bootstrap heeft een rol gewijzigd"
+
+
+def test_bootstrap_bevat_geen_wachtwoordlogica():
+    """Broncodecontrole: geen hardcoded wachtwoorden of admin-env meer."""
+    import inspect as _inspect
+
+    import app.bootstrap as bootstrap
+
+    bron = _inspect.getsource(bootstrap)
+    for term in ("hash_password", "KIK_ADMIN_PASSWORD", "RHADIX_ADMIN_PASSWORD", "AUTH_RESET"):
+        regels = [r.strip() for r in bron.splitlines()
+                  if term in r and not r.strip().startswith("#") and '"""' not in r]
+        assert regels == [], f"{term} nog aanwezig in bootstrap: {regels}"
