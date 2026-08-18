@@ -66,6 +66,10 @@ services:
       # (Datavalidatie als identity provider). Expliciet doorgegeven zodat hij als
       # noodrem aan te zetten is zonder release: LOCAL_LOGIN_ENABLED=1 in .env.staging.
       LOCAL_LOGIN_ENABLED: ${LOCAL_LOGIN_ENABLED:-0}
+      # Applicatietoegang via de centrale apps-claim (auth/app_access.py).
+      # off = geen controle | warn = loggen wat geweigerd zou worden | on = 403.
+      # Start op warn; pas na analyse van de warn-logs naar on.
+      APP_ACCESS_ENFORCE: ${APP_ACCESS_ENFORCE:-warn}
       FUSEKI_URL:         http://datastation-staging-fuseki:3030
       FUSEKI_DATASET:     kik
       FUSEKI_USER:        admin

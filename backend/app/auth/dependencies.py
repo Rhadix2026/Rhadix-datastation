@@ -54,6 +54,12 @@ def _provision_from_claims(claims: dict, db: Session) -> User:
         db.commit(); db.refresh(user)
     # Branding uit het centrale token als transient meegeven aan /auth/me (niet opgeslagen).
     user._branding = claims.get("branding")
+    # Autorisatie-context uit het centrale token, transient (niet opgeslagen):
+    # de apps-claim is de enige bron voor menselijke applicatietoegang.
+    user._token_source = "central"
+    user._apps = claims.get("apps")
+    user._token_typ = claims.get("typ")
+    user._token_scope = claims.get("scope")
     return user
 
 
@@ -81,7 +87,30 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_uuid, User.is_active == True).first()
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Gebruiker niet gevonden of gedeactiveerd")
+    # Lokaal (HS256) token: draagt geen centrale apps-claim.
+    user._token_source = "lokaal"
+    user._apps = None
+    user._token_typ = payload.get("typ")
+    user._token_scope = payload.get("scope")
     return user
+
+
+def get_optional_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Als get_current_user, maar geeft None zonder token i.p.v. 401.
+
+    Nodig voor de app-autorisatiecontrole: die moet publieke en server-to-server
+    routes ongemoeid laten (die komen zonder token binnen) en alleen ingrijpen
+    wanneer er wél een token is meegestuurd.
+    """
+    heeft_token = bool(credentials) or bool(
+        request.cookies.get(os.getenv("SSO_COOKIE_NAME", "rhadix_sso")))
+    if not heeft_token:
+        return None
+    return get_current_user(request, credentials, db)
 
 
 def require_role(*roles: UserRole):
