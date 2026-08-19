@@ -105,6 +105,11 @@ jobs:
             STAGING_DB_NAME=datastation_staging
             STAGING_FRONTEND_PORT=5181
             STAGING_BACKEND_PORT=8017
+            # Applicatietoegang: van warn naar handhaven. Een geldig SSO-token
+            # zonder 'datastation' in de apps-claim krijgt vanaf nu 403.
+            # ROLLBACK zonder release: zet deze regel in /opt/datastation-app/.env.staging
+            # op warn en herstart de backend-container.
+            APP_ACCESS_ENFORCE=on
             ENVEOF
             echo "STAGING_DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}"         >> /opt/datastation-app/.env.staging
             echo "STAGING_JWT_SECRET_KEY=${{ secrets.STAGING_JWT_SECRET_KEY }}"   >> /opt/datastation-app/.env.staging
