@@ -140,6 +140,17 @@ jobs:
             DB_NAME=datastation
             FRONTEND_PORT=5180
             BACKEND_PORT=8016
+            # ── Authenticatie & autorisatie ──────────────────────────────────
+            # Lokale wachtwoord-login uit; authenticatie verloopt via SSO.
+            LOCAL_LOGIN_ENABLED=0
+            # Applicatietoegang via de centrale apps-claim. EERSTE PRODUCTIE-
+            # RELEASE START OP WARN: weigeringen worden gelogd, niemand wordt
+            # buitengesloten. Naar 'on' pas na analyse van de productielogs en
+            # afzonderlijk akkoord per applicatie.
+            # ROLLBACK zonder release: deze regel op 'off' zetten in
+            # /opt/datastation-app/.env.production en de backend herstarten.
+            APP_ACCESS_ENFORCE=warn
+            # DEPRECATED — niets leest KIK_ADMIN_* nog; opschoning volgt apart.
             KIK_ADMIN_EMAIL=admin@kik-starter.nl
             ENVEOF
             echo "KIK_VERSION=$VERSION"                                  >> /opt/datastation-app/.env.production

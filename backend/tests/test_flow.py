@@ -5,8 +5,9 @@ def test_health(client):
     assert client.get("/api/health").status_code == 200
 
 
-def test_login(auth):
-    assert "Authorization" in auth
+def test_sso_authorisatie_beschikbaar(auth):
+    """De testsuite authenticeert via SSO, niet via lokale login."""
+    assert auth["Authorization"].startswith("Bearer ")
 
 
 def test_twin_store_geseed(client, auth):
