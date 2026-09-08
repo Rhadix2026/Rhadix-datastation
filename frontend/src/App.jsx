@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Nav, platformUrl } from './components/UI'
+import { Nav, platformUrl, centraleLogoutUrl } from './components/UI'
 import { login as apiLogin, getMe, clearAuthToken } from './services/api'
 import { applyBranding } from './brand'
 import LoginScreen      from './pages/LoginScreen'
@@ -76,7 +76,14 @@ export default function App() {
     applyBranding(me.branding)
     setAuthUser({ ...me, name: me.full_name || me.email })
   }
-  function handleLogout() { clearAuthToken(); setAuthUser(null); setGeenToegang(null) }
+  // Uitloggen loopt via de centrale uitgang op het Platform: die trekt het
+  // SSO-cookie in en zet de gebruiker daarna op het Platform. Alleen de lokale
+  // state wissen laat het cookie staan, waarna de eerstvolgende paginalading
+  // opnieuw inlogt.
+  function handleLogout() {
+    clearAuthToken(); setAuthUser(null); setGeenToegang(null)
+    window.location.replace(centraleLogoutUrl())
+  }
 
   if (booting) return (<><EnvBanner /><div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)' }}>Bezig met inloggen…</div></>)
   if (!authUser) return (<><EnvBanner /><LoginScreen onLogin={handleLogin} /></>)

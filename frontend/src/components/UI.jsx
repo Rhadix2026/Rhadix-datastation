@@ -9,6 +9,23 @@ export function platformUrl() {
   return stag ? 'https://app-staging.rhadix.nl' : 'https://app.rhadix.nl'
 }
 
+/**
+ * Centrale uitgang voor uitloggen.
+ *
+ * Uitloggen is geen handeling in deze applicatie. Het `rhadix_sso`-cookie op
+ * `.rhadix.nl` wordt uitgegeven door Rhadix Datavalidatie en kan alleen daar weer
+ * worden ingetrokken; deze app accepteert dat cookie als volwaardig bewijs van
+ * identiteit. Wist de app alleen zijn eigen state, dan logt de eerstvolgende
+ * paginalading de gebruiker gewoon weer in.
+ *
+ * Navigeren naar deze URL trekt het cookie in en zet de gebruiker daarna op het
+ * Platform, zodat hij niet achterblijft op de applicatie-URL. Zie de toelichting
+ * bij `GET /api/auth/logout` in auth/router.py van Datavalidatie.
+ */
+export function centraleLogoutUrl() {
+  return platformUrl().replace(/\/+$/, '') + '/api/auth/logout'
+}
+
 
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 export function Nav({ authUser, onLogout, links = [] }) {
