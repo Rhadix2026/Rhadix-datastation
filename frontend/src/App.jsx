@@ -21,14 +21,36 @@ function EnvBanner() {
   )
 }
 
+function GeenAppToegang({ melding, onLogout }) {
+  return (
+    <div style={{ padding: 48, display: 'flex', justifyContent: 'center' }}>
+      <div style={{
+        maxWidth: 560, borderLeft: '4px solid #c0392b', background: 'var(--card, #fff)',
+        borderRadius: 8, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,.12)',
+      }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Geen toegang tot Rhadix Datastation</h2>
+        <p style={{ margin: '0 0 16px', lineHeight: 1.5 }}>{melding}</p>
+        <button onClick={onLogout}>Uitloggen</button>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [authUser, setAuthUser] = useState(null)
   const [booting, setBooting]   = useState(true)
+  const [geenToegang, setGeenToegang] = useState(null)
 
   useEffect(() => {
     const onUnauth = () => setAuthUser(null)
     window.addEventListener('rhadix:unauthorized', onUnauth)
     return () => window.removeEventListener('rhadix:unauthorized', onUnauth)
+  }, [])
+
+  useEffect(() => {
+    const onGeenToegang = (e) => setGeenToegang(e.detail)
+    window.addEventListener('rhadix:geen-app-toegang', onGeenToegang)
+    return () => window.removeEventListener('rhadix:geen-app-toegang', onGeenToegang)
   }, [])
 
   // SSO-bootstrap: probeer bij het laden automatisch in te loggen via het
@@ -48,10 +70,11 @@ export default function App() {
     applyBranding(me.branding)
     setAuthUser({ ...me, name: me.full_name || me.email })
   }
-  function handleLogout() { clearAuthToken(); setAuthUser(null) }
+  function handleLogout() { clearAuthToken(); setAuthUser(null); setGeenToegang(null) }
 
   if (booting) return (<><EnvBanner /><div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)' }}>Bezig met inloggen…</div></>)
   if (!authUser) return (<><EnvBanner /><LoginScreen onLogin={handleLogin} /></>)
+  if (geenToegang) return (<><EnvBanner /><GeenAppToegang melding={geenToegang} onLogout={handleLogout} /></>)
 
   const isPlatform = authUser.role === 'PLATFORM_ADMIN'
   const isAdmin    = isPlatform || authUser.role === 'ORG_ADMIN'

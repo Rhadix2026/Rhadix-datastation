@@ -231,3 +231,26 @@ def test_10b_onbekende_stand_valt_terug_op_warn(monkeypatch, waarde, verwacht):
 def test_10c_default_is_warn(monkeypatch):
     monkeypatch.delenv("APP_ACCESS_ENFORCE", raising=False)
     assert enforce_mode() == "warn"
+
+
+# ── 11. Contract met de frontend ────────────────────────────────────────────
+# De frontend (frontend/src/services/api.js) onderscheidt de applicatie-
+# autorisatieweigering van alle andere 403's aan deze vaste zin, en toont daarop
+# een verklarend scherm in plaats van een kale foutmelding. Verandert de zin,
+# dan valt de gebruiker terug op een generieke fout: dat mag niet ongemerkt.
+GEEN_APP_TOEGANG_ZIN = "Vraag uw beheerder om de applicatie"
+
+
+def test_11_403_bevat_de_zin_waarop_de_frontend_matcht(client, monkeypatch):
+    monkeypatch.setenv("APP_ACCESS_ENFORCE", "on")
+    t = _tok(email="frontend-contract@test.rhadix.nl", apps=["datavalidatie"])
+    r = client.get(BESCHERMD, headers=_H(t))
+    assert r.status_code == 403, r.text
+    assert GEEN_APP_TOEGANG_ZIN in r.json()["detail"]
+
+
+def test_11b_andere_403_bevat_die_zin_niet(client):
+    """Een andere 403 (lokale login uit) mag niet als 'geen app-toegang' gelden."""
+    r = client.post("/api/auth/login", json={"email": "admin@rhadix.nl", "password": "x"})
+    assert r.status_code == 403, r.text
+    assert GEEN_APP_TOEGANG_ZIN not in r.json()["detail"]
