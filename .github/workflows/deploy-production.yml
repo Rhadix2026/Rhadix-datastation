@@ -143,13 +143,12 @@ jobs:
             # ── Authenticatie & autorisatie ──────────────────────────────────
             # Lokale wachtwoord-login uit; authenticatie verloopt via SSO.
             LOCAL_LOGIN_ENABLED=0
-            # Applicatietoegang via de centrale apps-claim. EERSTE PRODUCTIE-
-            # RELEASE START OP WARN: weigeringen worden gelogd, niemand wordt
-            # buitengesloten. Naar 'on' pas na analyse van de productielogs en
-            # afzonderlijk akkoord per applicatie.
-            # ROLLBACK zonder release: deze regel op 'off' zetten in
-            # /opt/datastation-app/.env.production en de backend herstarten.
-            APP_ACCESS_ENFORCE=warn
+            # Applicatietoegang via de centrale apps-claim. Vastgestelde
+            # PRODUCTIEBASELINE: on — weigeren met 403.
+            # ROLLBACK zonder release: deze regel op 'warn' of 'off' zetten in
+            # /opt/datastation-app/.env.production en de backend herstarten; let op dat
+            # een volgende deploy deze waarde opnieuw schrijft.
+            APP_ACCESS_ENFORCE=on
             # DEPRECATED — niets leest KIK_ADMIN_* nog; opschoning volgt apart.
             KIK_ADMIN_EMAIL=admin@kik-starter.nl
             ENVEOF
