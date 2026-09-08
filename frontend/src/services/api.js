@@ -9,6 +9,10 @@ function authHeaders(extra = {}) {
   return _token ? { Authorization: `Bearer ${_token}`, ...extra } : { ...extra }
 }
 
+// Vaste zin uit de 403 van require_app_access (backend/app/auth/app_access.py).
+// Onderscheidt de applicatie-autorisatieweigering van alle andere 403's.
+export const GEEN_APP_TOEGANG_ZIN = 'Vraag uw beheerder om de applicatie'
+
 async function req(method, path, body) {
   const opts = { method, headers: authHeaders(body ? { 'Content-Type': 'application/json' } : {}) }
   if (body !== undefined) opts.body = JSON.stringify(body)
@@ -17,6 +21,13 @@ async function req(method, path, body) {
   if (!res.ok) {
     let detail = `Fout ${res.status}`
     try { const j = await res.json(); detail = j.detail || detail } catch {}
+    // Uitsluitend de applicatie-autorisatieweigering krijgt een eigen scherm. Die is
+    // herkenbaar aan de vaste zin uit backend/app/auth/app_access.py. Andere 403's —
+    // rolcontrole ("Onvoldoende rechten"), lokale login uit, of een routespecifieke
+    // weigering — blijven een gewone Error, zodat ze niet worden gemaskeerd.
+    if (res.status === 403 && detail.includes(GEEN_APP_TOEGANG_ZIN)) {
+      window.dispatchEvent(new CustomEvent('rhadix:geen-app-toegang', { detail }))
+    }
     throw new Error(detail)
   }
   return res.status === 204 ? null : res.json()
