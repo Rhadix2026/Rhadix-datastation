@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Page, PageTitle, Card, BtnPrimary, BtnGhost, RoleBadge, Field, Modal } from '../components/UI'
-import { listTenants, createTenant, listTenantUsers, platformStats } from '../services/api'
+import { Page, PageTitle, Card, BtnGhost, RoleBadge } from '../components/UI'
+import { listTenants, listTenantUsers, platformStats } from '../services/api'
 
 export default function Organisaties() {
   const [tenants, setTenants] = useState([])
   const [stats, setStats]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
-  const [showCreate, setShowCreate] = useState(false)
   const [drill, setDrill]     = useState(null)   // tenant waarvan we users tonen
 
   async function refresh() {
@@ -24,7 +23,7 @@ export default function Organisaties() {
   return (
     <Page>
       <PageTitle badge="Platformbeheer" title="Organisaties"
-        sub="Beheer de organisaties op het Rhadix Uitvraag platform. Bij een nieuwe organisatie maakt u meteen de eerste organisatiebeheerder aan." />
+        sub="Overzicht van de organisaties die deze applicatie gebruiken. Organisaties en hun gebruikers worden centraal aangemaakt op het Rhadix-platform en verschijnen hier na de eerste login." />
 
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
@@ -36,10 +35,6 @@ export default function Organisaties() {
           ))}
         </div>
       )}
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-        <BtnPrimary onClick={() => setShowCreate(true)}>+ Nieuwe organisatie</BtnPrimary>
-      </div>
 
       {error && <Card style={{ marginBottom: 14, color: 'var(--red)', background: 'var(--red-bg)', border: '1px solid var(--red-light)' }}>{error}</Card>}
 
@@ -67,7 +62,6 @@ export default function Organisaties() {
         </table>
       </Card>
 
-      {showCreate && <CreateTenantModal onClose={() => setShowCreate(false)} onDone={() => { setShowCreate(false); refresh() }} />}
     </Page>
   )
 }
@@ -101,32 +95,5 @@ function TenantUsers({ tenant, onBack }) {
         </table>
       </Card>
     </Page>
-  )
-}
-
-function CreateTenantModal({ onClose, onDone }) {
-  const [f, setF] = useState({ name: '', slug: '', admin_full_name: '', admin_email: '', admin_password: '' })
-  const [busy, setBusy] = useState(false); const [err, setErr] = useState('')
-  const set = (k) => (v) => setF(p => ({ ...p, [k]: k === 'slug' ? v.toLowerCase().replace(/[^a-z0-9-]/g, '-') : v }))
-  async function submit() {
-    setBusy(true); setErr('')
-    try { await createTenant(f); onDone() } catch (e) { setErr(e.message) } finally { setBusy(false) }
-  }
-  return (
-    <Modal title="Nieuwe organisatie" onClose={onClose}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <Field label="Organisatienaam" required value={f.name} onChange={set('name')} placeholder="Zorgorganisatie West" />
-        <Field label="Slug (technische naam)" required value={f.slug} onChange={set('slug')} placeholder="zorgorg-west" />
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.4px' }}>Eerste organisatiebeheerder</div>
-        <Field label="Naam beheerder" value={f.admin_full_name} onChange={set('admin_full_name')} placeholder="Org Beheerder" />
-        <Field label="E-mail beheerder" type="email" required value={f.admin_email} onChange={set('admin_email')} placeholder="beheer@organisatie.nl" />
-        <Field label="Wachtwoord beheerder" type="password" required value={f.admin_password} onChange={set('admin_password')} placeholder="min. 12 tekens" />
-        {err && <div style={{ color: 'var(--red)', fontSize: 13 }}>{err}</div>}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
-          <BtnGhost onClick={onClose}>Annuleren</BtnGhost>
-          <BtnPrimary onClick={submit} disabled={busy}>{busy ? 'Bezig…' : 'Aanmaken'}</BtnPrimary>
-        </div>
-      </div>
-    </Modal>
   )
 }
