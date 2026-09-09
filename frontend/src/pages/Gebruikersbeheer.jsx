@@ -1,49 +1,55 @@
 /**
- * Gebruikersbeheer — toegang tot DEZE applicatie, per gebruiker.
+ * Gebruikersbeheer — overzicht van de gebruikers van uw organisatie in deze applicatie.
  *
- * Accounts en applicatietoegang worden centraal beheerd in Rhadix Datavalidatie: daar
- * worden gebruikers aangemaakt, wachtwoorden gezet en applicaties toegewezen. Deze
- * applicatie kent alleen een lokale afgeleide, die bij de eerste SSO-login vanzelf
- * ontstaat.
+ * Dit scherm heeft bewust geen bewerkacties meer. Identiteit en applicatietoegang
+ * worden centraal beheerd in Rhadix Datavalidatie; wat hier staat is een afgeleide die
+ * bij de eerste SSO-login vanzelf ontstaat.
  *
- * Dit scherm bood eerder ook 'Nieuwe gebruiker' en 'Wachtwoord'. Beide leverden niets
- * bruikbaars op: de lokale wachtwoordroute staat uit (LOCAL_LOGIN_ENABLED=0), en een
- * hier aangemaakt account bestaat centraal niet en krijgt dus geen apps-claim. Ze zijn
- * weggehaald omdat ze een verwachting wekten die ze niet waarmaakten — niet om de
- * schermen op elkaar te laten lijken. Beide functies blijven onverkort beschikbaar
- * voor dezelfde rol in het centrale beheerscherm.
+ * Wat er is weggehaald en waarom:
  *
- * (De)activeren en verwijderen zijn ongewijzigd gebleven. LET OP: tijdens de analyse
- * bleek dat lokaal deactiveren een SSO-gebruiker niet blokkeert — `get_current_user`
- * past de is_active-filter alleen toe op het lokale HS256-pad, terwijl een centraal
- * RS256-token rechtstreeks door JIT-provisioning gaat. Dat is apart gerapporteerd en
- * bewust niet in deze wijziging opgelost, omdat het de autorisatiebeslissing raakt.
- * Zie backend/tests/test_lokaal_gebruikersbeheer.py, TestBekendeAfwijking.
+ *   Nieuwe gebruiker  — leverde een account op dat nergens kon inloggen: de lokale
+ *                       wachtwoordroute staat uit (LOCAL_LOGIN_ENABLED=0) en het
+ *                       account bestaat centraal niet, dus krijgt het geen apps-claim.
+ *   Wachtwoord        — zette een hash die nooit werd vergeleken, om diezelfde reden.
+ *   Deactiveer        — had geen effect op de toegang. `get_current_user` past de
+ *                       is_active-filter alleen toe op het lokale HS256-pad, terwijl
+ *                       een centraal RS256-token rechtstreeks door JIT-provisioning
+ *                       gaat. Omdat lokale login uitstaat, komt iedereen langs dat
+ *                       centrale pad binnen.
+ *   Verwijder         — was tijdelijk: JIT maakt de gebruiker bij de eerstvolgende
+ *                       login opnieuw aan, actief en met een nieuw id.
+ *
+ * Alle vier blijven beschikbaar voor dezelfde rol in het centrale beheerscherm van
+ * Rhadix Datavalidatie; daar hebben ze wél effect. Het daadwerkelijk verwijderen van
+ * een gebruiker hoort daar thuis, omdat het de identiteit zelf weghaalt.
+ *
+ * NOG NIET OPGELOST: één gebruiker uit één applicatie weren kan hiermee niet. Dat is
+ * geen omissie van dit scherm maar van het toewijzingsmodel — de apps-claim is de
+ * vereniging van organisatie- en gebruikerstoewijzingen, waardoor een persoonlijke
+ * intrekking geen effect heeft. Dat valt onder bevinding 8 van het bevindingenregister
+ * en moet vanuit het centrale toewijzings-/autorisatiemodel worden opgelost.
+ *
+ * De endpoints achter de weggehaalde knoppen zijn in deze wijziging bewust blijven
+ * staan; ze worden alleen niet meer aangeroepen. Het opruimen daarvan is een aparte
+ * afweging.
  */
 import { useEffect, useState } from 'react'
 import { Page, PageTitle, Card, BtnGhost, RoleBadge, platformUrl } from '../components/UI'
-import { listOrgUsers, toggleUser, deleteOrgUser } from '../services/api'
+import { listOrgUsers } from '../services/api'
 
 export default function Gebruikersbeheer({ authUser }) {
-  const [users, setUsers]   = useState([])
+  const [users, setUsers]     = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState('')
+  const [error, setError]     = useState('')
 
-  async function refresh() {
-    setLoading(true); setError('')
-    try { setUsers(await listOrgUsers()) }
-    catch (e) { setError(e.message) }
-    finally { setLoading(false) }
-  }
-  useEffect(() => { refresh() }, [])
-
-  async function onToggle(u) {
-    try { await toggleUser(u.id); refresh() } catch (e) { alert(e.message) }
-  }
-  async function onDelete(u) {
-    if (!confirm(`Gebruiker ${u.email} verwijderen uit deze applicatie?`)) return
-    try { await deleteOrgUser(u.id); refresh() } catch (e) { alert(e.message) }
-  }
+  useEffect(() => {
+    let leeft = true
+    listOrgUsers()
+      .then(u => { if (leeft) setUsers(u) })
+      .catch(e => { if (leeft) setError(e.message) })
+      .finally(() => { if (leeft) setLoading(false) })
+    return () => { leeft = false }
+  }, [])
 
   return (
     <Page>
@@ -52,8 +58,9 @@ export default function Gebruikersbeheer({ authUser }) {
 
       <Card style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
-          Een gebruiker aanmaken, een wachtwoord instellen of een applicatie toewijzen doet u
-          op het Platform. Een nieuwe gebruiker verschijnt hier vanzelf na zijn eerste login.
+          Een gebruiker aanmaken of verwijderen, een wachtwoord instellen of een applicatie
+          toewijzen doet u op het Platform. Een nieuwe gebruiker verschijnt hier vanzelf na
+          zijn eerste login.
         </div>
         <BtnGhost onClick={() => { window.location.href = platformUrl() }}>
           ▦ Naar het Platform
@@ -66,13 +73,16 @@ export default function Gebruikersbeheer({ authUser }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr style={{ background: 'var(--bg)', textAlign: 'left' }}>
-              <th style={th}>Naam</th><th style={th}>E-mail</th><th style={th}>Rol</th>
-              <th style={th}>Status</th><th style={{ ...th, textAlign: 'right' }}>Acties</th>
+              <th style={th}>Naam</th><th style={th}>E-mail</th><th style={th}>Rol</th><th style={th}>Status</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={5} style={{ ...td, color: 'var(--text3)' }}>Laden…</td></tr>}
-            {!loading && users.length === 0 && <tr><td colSpan={5} style={{ ...td, color: 'var(--text3)' }}>Nog geen gebruikers. Ze verschijnen hier na hun eerste login.</td></tr>}
+            {loading && <tr><td colSpan={4} style={{ ...td, color: 'var(--text3)' }}>Laden…</td></tr>}
+            {!loading && users.length === 0 && (
+              <tr><td colSpan={4} style={{ ...td, color: 'var(--text3)' }}>
+                Nog geen gebruikers. Ze verschijnen hier na hun eerste login.
+              </td></tr>
+            )}
             {users.map(u => (
               <tr key={u.id} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={td}>{u.full_name || '—'}{u.id === authUser.id && <span style={{ fontSize: 11, color: 'var(--text4)' }}> (u)</span>}</td>
@@ -82,12 +92,6 @@ export default function Gebruikersbeheer({ authUser }) {
                   <span style={{ fontSize: 12, fontWeight: 600, color: u.is_active ? 'var(--green)' : 'var(--text4)' }}>
                     {u.is_active ? '● Actief' : '○ Inactief'}
                   </span>
-                </td>
-                <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <BtnGhost onClick={() => onToggle(u)} disabled={u.id === authUser.id} style={{ marginRight: 6 }}>
-                    {u.is_active ? 'Deactiveer' : 'Activeer'}
-                  </BtnGhost>
-                  <BtnGhost danger onClick={() => onDelete(u)} disabled={u.id === authUser.id}>Verwijder</BtnGhost>
                 </td>
               </tr>
             ))}
