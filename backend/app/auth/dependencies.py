@@ -27,6 +27,11 @@ _ROLE_MAP = {
 
 def _provision_from_claims(claims: dict, db: Session) -> User:
     """JIT-provisioning: maak/synchroniseer een lokale user uit de centrale claims."""
+    # Een machinetoken (B-28) is geen gebruiker: nooit JIT-provisionen en nooit
+    # toegang tot de menselijke routes van deze applicatie.
+    if claims.get("typ") == "machine":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Machinetoken niet toegestaan",
+                            headers={"WWW-Authenticate": "Bearer"})
     import re as _re
     email = (claims.get("email") or "").lower().strip()
     if not email:
