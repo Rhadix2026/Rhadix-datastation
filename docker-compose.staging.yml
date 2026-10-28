@@ -78,7 +78,7 @@ services:
       # vragen hangt aan het label, dus de overstap verweest niets.
       DATASTATION_AFNEMERS:      uitvraag-staging=76c3c5fa-5cfb-4c8d-b1c0-49dd31b12350,uitvraag-staging=98da413f-f792-4daa-9581-06daaf2255c1
       DATASTATION_AUDIENCE:      datastation-staging
-      DATASTATION_AFNEMER_ALLEEN_MACHINE: ${DATASTATION_AFNEMER_ALLEEN_MACHINE:-off}
+      DATASTATION_AFNEMER_ALLEEN_MACHINE: ${DATASTATION_AFNEMER_ALLEEN_MACHINE:-on}
       DATASTATION_M2M_ENFORCE:   ${DATASTATION_M2M_ENFORCE:-on}
       # Staging is een demo-twin: ontbrekende observaties aanvullen, en de open
       # vragen van vóór B-28 (zonder eigenaar) blijven ophaalbaar.
