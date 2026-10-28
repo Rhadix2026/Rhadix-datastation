@@ -27,6 +27,11 @@ _ROLE_MAP = {
 
 def _provision_from_claims(claims: dict, db: Session) -> User:
     """JIT-provisioning: maak/synchroniseer een lokale user uit de centrale claims."""
+    # Een machinetoken (B-28) is geen gebruiker: nooit JIT-provisionen en nooit
+    # toegang tot de menselijke routes van deze applicatie.
+    if claims.get("typ") == "machine":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Machinetoken niet toegestaan",
+                            headers={"WWW-Authenticate": "Bearer"})
     import re as _re
     email = (claims.get("email") or "").lower().strip()
     if not email:
@@ -58,9 +63,18 @@ def _provision_from_claims(claims: dict, db: Session) -> User:
     # de apps-claim is de enige bron voor menselijke applicatietoegang.
     user._token_source = "central"
     user._apps = claims.get("apps")
+    user._central_sub = claims.get("sub")
     user._token_typ = claims.get("typ")
     user._token_scope = claims.get("scope")
     return user
+
+
+def centrale_claims(token: str) -> dict:
+    """De enige plek waar een centraal (RS256) token wordt geverifieerd: handtekening,
+    issuer en geldigheid. Zowel gebruikers (`get_current_user`) als afnemers
+    (`auth/afnemer.py`) lopen hierlangs, zodat toekomstige controles — zoals de
+    centrale tokenintrekking van B-16 — voor beide gelden. Gooit JWTError/ValueError."""
+    return decode_central_token(token)
 
 
 def get_current_user(
@@ -74,7 +88,7 @@ def get_current_user(
                             headers={"WWW-Authenticate": "Bearer"})
     try:
         if CENTRAL_PUBLIC_KEY and token_alg(token) == "RS256":
-            return _provision_from_claims(decode_central_token(token), db)
+            return _provision_from_claims(centrale_claims(token), db)
         payload = decode_access_token(token)
         user_id = payload.get("sub")
         if not user_id:

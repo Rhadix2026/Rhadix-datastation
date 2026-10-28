@@ -70,6 +70,20 @@ services:
       # off = geen controle | warn = loggen wat geweigerd zou worden | on = 403.
       # Start op warn; pas na analyse van de warn-logs naar on.
       APP_ACCESS_ENFORCE: ${APP_ACCESS_ENFORCE:-warn}
+      # ── B-28: afnemers (machine-to-machine) ─────────────────────────────
+      # Afnemer = centraal serviceaccount (Rhadix Datavalidatie); hier alleen de
+      # sub, geen geheim. Noodrem zonder release: DATASTATION_M2M_ENFORCE=off.
+      # Afnemer = machineaccount van Datavalidatie (B-28). Het oude serviceaccount
+      # (76c3c5fa…) is gedeactiveerd en hier verwijderd. Eigenaarschap van vragen
+      # hangt aan het label, dus eerdere vragen blijven ophaalbaar.
+      DATASTATION_AFNEMERS:      uitvraag-staging=98da413f-f792-4daa-9581-06daaf2255c1
+      DATASTATION_AUDIENCE:      datastation-staging
+      DATASTATION_AFNEMER_ALLEEN_MACHINE: ${DATASTATION_AFNEMER_ALLEEN_MACHINE:-on}
+      DATASTATION_M2M_ENFORCE:   ${DATASTATION_M2M_ENFORCE:-on}
+      # Staging is een demo-twin: ontbrekende observaties aanvullen, en de open
+      # vragen van vóór B-28 (zonder eigenaar) blijven ophaalbaar.
+      DATASTATION_DEMO:              "on"
+      DATASTATION_LEGACY_RESULTATEN: "on"
       FUSEKI_URL:         http://datastation-staging-fuseki:3030
       FUSEKI_DATASET:     kik
       FUSEKI_USER:        admin

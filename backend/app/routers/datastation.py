@@ -3,16 +3,19 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import re
 import pathlib
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import datastation_models as dm
 
+from app.auth.afnemer import Afnemer, begrens, vrager_resultaat, vrager_vragen
 from app.auth.dependencies import get_current_user
 from app.models.auth_models import User
 from app.datastation import rdf_store
@@ -21,6 +24,10 @@ from app.datastation.rule_engine import RuleEngine
 from app.datastation import happyflow as hf
 
 router = APIRouter(tags=["datastation"])
+# Routes voor afnemers (machine-to-machine) én gebruikers; zonder de router-brede
+# app-toegangscontrole, want een afnemer heeft geen applicatie. Elke route hier
+# controleert zelf via `vrager` (B-28).
+afnemer_router = APIRouter(tags=["datastation-afnemer"])
 
 _DEMO_DIR = pathlib.Path(__file__).parent.parent / "datastation" / "demo"
 _RULES_DIR = pathlib.Path(__file__).parent.parent / "datastation" / "rules"
@@ -39,7 +46,7 @@ def _happy_flow_rules() -> list[dict]:
 
 
 class SparqlVraag(BaseModel):
-    sparql: str
+    sparql: str = Field(max_length=8192)
 
 
 @router.get("/datastation/status")
@@ -91,10 +98,11 @@ async def upload(file: UploadFile = File(...), mapping: str = Form(...),
 
 
 @router.post("/datastation/beantwoord")
-def beantwoord(vraag: SparqlVraag):
-    # Publiek/server-to-server: een afnemer (Uitvraag) stuurt de gevalideerde vraag.
-    # (KIK-V-vertrouwenslaag — Verifiable Credential-verificatie — is fase 3.)
-    """Beantwoord een gevalideerde vraag (SPARQL) op de ingeladen store."""
+def beantwoord(vraag: SparqlVraag, current: User = Depends(get_current_user)):
+    """Beantwoord direct een SPARQL-vraag op de ingeladen store.
+
+    Alleen voor gebruikers van dit datastation (de eigen UI); een afnemer dient
+    vragen in via /datastation/vragen en krijgt pas na beoordeling antwoord (B-28)."""
     a = STATION.beantwoord(vraag.sparql)
     return {"status": a.status, "waarde": a.waarde, "backend": a.backend, "toelichting": a.toelichting}
 
@@ -155,7 +163,7 @@ def happyflow_overzicht(current: User = Depends(get_current_user)):
 
 # ── Vraag-inbox (asynchrone, beoordeelde beantwoording) ───────────────────────
 class VraagIn(BaseModel):
-    sparql: str
+    sparql: str = Field(max_length=8192)
     uitwisselprofiel: str | None = None
     indicator_code: str | None = None
     indicator_label: str | None = None
@@ -176,23 +184,55 @@ def _audit(db: Session, vraag_id, actie: str, details: str | None = None, door: 
     db.add(dm.DatastationAudit(vraag_id=vraag_id, actie=actie, details=details, door=door))
 
 
-@router.post("/datastation/vragen", status_code=201)
-def vraag_indienen(body: VraagIn, db: Session = Depends(get_db)):
-    """Publiek/server-to-server: een afnemer (Uitvraag) dient een gevalideerde
-    vraag in. Het datastation berekent meteen een voorstel-antwoord; dit wacht
-    vervolgens op beoordeling door de zorgaanbieder voordat het wordt verzonden."""
+INDICATORCODE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def sparql_sjabloon(indicator_code: str) -> str:
+    """De enige query die een afnemer mag stellen: het gevalideerde sjabloon per
+    indicator. Moet gelijk blijven aan `build_sparql` in Rhadix Uitvraag."""
+    return (
+        "PREFIX kik: <https://kik-v.nl/ns#>\n"
+        "SELECT (COUNT(?o) AS ?teller) (AVG(?w) AS ?waarde) WHERE {\n"
+        f"  ?o a kik:Observatie ; kik:indicator \"{indicator_code}\" ; kik:waarde ?w .\n"
+        "}"
+    )
+
+
+def _demo() -> bool:
+    return os.getenv("DATASTATION_DEMO", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+@afnemer_router.post("/datastation/vragen", status_code=201)
+def vraag_indienen(body: VraagIn, db: Session = Depends(get_db), wie=Depends(vrager_vragen)):
+    """Een afnemer (Uitvraag) of een gebruiker (de eigen UI) dient een vraag in.
+    Het datastation berekent meteen een voorstel-antwoord; dit wacht op beoordeling
+    door de zorgaanbieder voordat het wordt vrijgegeven.
+
+    Een afnemer mag alleen het gevalideerde sjabloon voor een indicator sturen en
+    krijgt alleen het zaaknummer terug, geen berekende waarde (B-28)."""
+    afnemer = wie if isinstance(wie, Afnemer) else None
+    if afnemer:
+        begrens(afnemer, "vragen")
+        code = body.indicator_code or ""
+        if not INDICATORCODE.match(code):
+            raise HTTPException(422, "Ongeldige of ontbrekende indicatorcode")
+        if body.sparql != sparql_sjabloon(code):
+            raise HTTPException(422, "Alleen de gevalideerde query voor deze indicator is toegestaan")
     vraag = dm.DatastationVraag(
         sparql=body.sparql, uitwisselprofiel=body.uitwisselprofiel,
         indicator_code=body.indicator_code, indicator_label=body.indicator_label,
         afnemer=body.afnemer, zorgaanbieder=body.zorgaanbieder,
+        afnemer_id=afnemer.label if afnemer else None,
+        afnemer_sub=afnemer.sub if afnemer else None,
         status=dm.STATUS_TE_BEOORDELEN,
     )
     db.add(vraag)
     db.flush()
-    _audit(db, vraag.id, "ONTVANGEN", f"afnemer={body.afnemer or '-'}")
+    _audit(db, vraag.id, "ONTVANGEN", f"afnemer={body.afnemer or '-'}",
+           door=f"afnemer:{afnemer.label}" if afnemer else getattr(wie, "email", None))
     # Lazy: zorg dat er twin-observatiedata is voor deze indicator (ongeacht profiel),
-    # zodat de gevalideerde vraag een waarde oplevert i.p.v. 0.
-    if body.indicator_code:
+    # zodat de gevalideerde vraag een waarde oplevert i.p.v. 0. Alleen in demo-stand.
+    if body.indicator_code and _demo():
         zorg_voor_observatie(body.indicator_code)
     a = STATION.beantwoord(body.sparql)
     vraag.backend = a.backend
@@ -205,6 +245,8 @@ def vraag_indienen(body: VraagIn, db: Session = Depends(get_db)):
         _audit(db, vraag.id, "BEREKEND", f"status={a.status}: {vraag.toelichting}")
     db.commit()
     db.refresh(vraag)
+    if afnemer:
+        return {"query_id": str(vraag.id), "zaaknummer": str(vraag.id), "status": vraag.status}
     return vraag.as_dict()
 
 
@@ -327,12 +369,31 @@ def vraag_afwijzen(vraag_id: str, body: AfwijzenIn, db: Session = Depends(get_db
     return v.as_dict()
 
 
-@router.get("/datastation/vragen/{vraag_id}/resultaat")
-def vraag_resultaat(vraag_id: str, db: Session = Depends(get_db)):
-    """Publiek: de afnemer haalt het resultaat op. Pas beschikbaar na verzending."""
+def _mag_resultaat(v: "dm.DatastationVraag", afnemer: Afnemer) -> bool:
+    """Alleen de afnemer die de vraag indiende. De eigenaar is het afnemerlabel, niet
+    het credential: zo blijven vragen ophaalbaar na een overstap van serviceaccount
+    naar machineaccount of na rotatie. Vragen van vóór B-28 hebben geen eigenaar; die
+    zijn alleen leesbaar als DATASTATION_LEGACY_RESULTATEN=on."""
+    if v.afnemer_id:
+        return v.afnemer_id == afnemer.label
+    if v.afnemer_sub:
+        return v.afnemer_sub == afnemer.sub
+    return os.getenv("DATASTATION_LEGACY_RESULTATEN", "off").strip().lower() in ("1", "on", "true", "yes")
+
+
+@afnemer_router.get("/datastation/vragen/{vraag_id}/resultaat")
+def vraag_resultaat(vraag_id: str, db: Session = Depends(get_db), wie=Depends(vrager_resultaat)):
+    """De afnemer haalt het resultaat van de eigen vraag op; pas beschikbaar na
+    vrijgave. Een vraag van een andere afnemer bestaat voor hem niet (404)."""
+    afnemer = wie if isinstance(wie, Afnemer) else None
+    if afnemer:
+        begrens(afnemer, "resultaat")
     v = _get_vraag(db, vraag_id)
+    if afnemer and not _mag_resultaat(v, afnemer):
+        raise HTTPException(404, "Vraag niet gevonden")
     if v.status == dm.STATUS_VERZONDEN:
-        _audit(db, v.id, "OPGEHAALD", f"afnemer={v.afnemer or '-'}")
+        _audit(db, v.id, "OPGEHAALD", f"afnemer={v.afnemer or '-'}",
+               door=f"afnemer:{afnemer.label}" if afnemer else getattr(wie, "email", None))
         db.commit()
         return {"query_id": str(v.id), "status": "GEREED",
                 "waarde": v.definitieve_waarde, "handmatig": v.handmatig,
