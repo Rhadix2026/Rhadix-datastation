@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import datastation_models as dm
 
-from app.auth.afnemer import Afnemer, begrens, vrager
+from app.auth.afnemer import Afnemer, begrens, vrager_resultaat, vrager_vragen
 from app.auth.dependencies import get_current_user
 from app.models.auth_models import User
 from app.datastation import rdf_store
@@ -203,7 +203,7 @@ def _demo() -> bool:
 
 
 @afnemer_router.post("/datastation/vragen", status_code=201)
-def vraag_indienen(body: VraagIn, db: Session = Depends(get_db), wie=Depends(vrager)):
+def vraag_indienen(body: VraagIn, db: Session = Depends(get_db), wie=Depends(vrager_vragen)):
     """Een afnemer (Uitvraag) of een gebruiker (de eigen UI) dient een vraag in.
     Het datastation berekent meteen een voorstel-antwoord; dit wacht op beoordeling
     door de zorgaanbieder voordat het wordt vrijgegeven.
@@ -370,15 +370,19 @@ def vraag_afwijzen(vraag_id: str, body: AfwijzenIn, db: Session = Depends(get_db
 
 
 def _mag_resultaat(v: "dm.DatastationVraag", afnemer: Afnemer) -> bool:
-    """Alleen de afnemer die de vraag indiende. Vragen van vóór B-28 hebben geen
-    eigenaar; die zijn alleen leesbaar als DATASTATION_LEGACY_RESULTATEN=on."""
+    """Alleen de afnemer die de vraag indiende. De eigenaar is het afnemerlabel, niet
+    het credential: zo blijven vragen ophaalbaar na een overstap van serviceaccount
+    naar machineaccount of na rotatie. Vragen van vóór B-28 hebben geen eigenaar; die
+    zijn alleen leesbaar als DATASTATION_LEGACY_RESULTATEN=on."""
+    if v.afnemer_id:
+        return v.afnemer_id == afnemer.label
     if v.afnemer_sub:
         return v.afnemer_sub == afnemer.sub
     return os.getenv("DATASTATION_LEGACY_RESULTATEN", "off").strip().lower() in ("1", "on", "true", "yes")
 
 
 @afnemer_router.get("/datastation/vragen/{vraag_id}/resultaat")
-def vraag_resultaat(vraag_id: str, db: Session = Depends(get_db), wie=Depends(vrager)):
+def vraag_resultaat(vraag_id: str, db: Session = Depends(get_db), wie=Depends(vrager_resultaat)):
     """De afnemer haalt het resultaat van de eigen vraag op; pas beschikbaar na
     vrijgave. Een vraag van een andere afnemer bestaat voor hem niet (404)."""
     afnemer = wie if isinstance(wie, Afnemer) else None

@@ -48,6 +48,7 @@ Datavalidatie/Uitvraag.
 ## Sessie-log
 | Datum | Versie | Wijziging |
 |-------|--------|-----------|
+| 2026-10-28 | staging | **B-28 stap 3+4**: menselijke routes weigeren `typ=machine` (stap 3). Afnemerpad accepteert machinetokens met `aud` = `DATASTATION_AUDIENCE` en de scope per route (`datastation:vragen` / `datastation:resultaat`); machine valt nooit terug op het menselijke pad. Eigenaarschap van vragen = afnemerlabel. Overgang: serviceaccount én machineaccount onder label `uitvraag-staging`; `DATASTATION_AFNEMER_ALLEEN_MACHINE` sluit het serviceaccount af. Log bevat jti, nooit het token. |
 | 2026-10-28 | staging | **B-28**: afnemerroutes (`POST /datastation/vragen`, `GET …/resultaat`) vragen een geconfigureerde afnemer (centraal serviceaccount van Datavalidatie, `DATASTATION_AFNEMERS` = label=sub) of een gebruiker mét datastation-app (strikt); `beantwoord` alleen gebruikers. Afnemer: alleen het SPARQL-sjabloon per indicator, krijgt alleen het zaaknummer, ziet alleen eigen resultaten (anders 404), uurlimiet per afnemer, geweigerd op alle andere routes. Kolommen `afnemer_id`/`afnemer_sub`. Staging: `DATASTATION_DEMO` en `DATASTATION_LEGACY_RESULTATEN` aan. Noodrem `DATASTATION_M2M_ENFORCE=off`. |
 | 2026-06-17 | v1.0.0 | Eerste productie-release. nginx-vhost + Cloudflare DNS `datastation.rhadix.nl` (5180/8016). Geactiveerd in de Datavalidatie-portal. CLAUDE.md rechtgezet (was per abuis een kopie van de Uitvraag-versie). |
 | 2026-06-12 | — | Datastation-inbox: 'Alles accorderen' (bulk) + upload-paneel in dashboard. |

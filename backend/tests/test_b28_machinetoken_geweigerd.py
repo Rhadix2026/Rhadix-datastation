@@ -39,8 +39,8 @@ def test_gebruikerstoken_werkt_nog(client, auth):
 
 
 def test_machinetoken_niet_geconfigureerd_op_afnemerroute(client, monkeypatch):
-    """Een machinetoken waarvan de sub geen afnemer is, valt terug op het menselijke
-    pad en wordt daar geweigerd (stap 4 voegt de afnemer-acceptatie toe)."""
+    """Een machinetoken waarvan de sub geen afnemer is, wordt op de afnemerroute
+    expliciet geweigerd (stap 4) en valt nooit terug op het menselijke pad."""
     monkeypatch.delenv("DATASTATION_AFNEMERS", raising=False)
     r = client.post("/api/datastation/vragen", headers=_machine(), json={"sparql": "x", "indicator_code": "2.1"})
-    assert r.status_code == 401
+    assert r.status_code == 403

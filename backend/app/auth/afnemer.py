@@ -54,8 +54,26 @@ LABEL = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 @dataclass(frozen=True)
 class Afnemer:
     label: str        # korte, vaste naam uit de configuratie (bijv. 'uitvraag-staging')
-    sub: str          # centrale gebruikers-id van het serviceaccount
+    sub: str          # centrale id van het credential (machine- of serviceaccount)
     organisatie: Optional[str] = None
+    machine: bool = False
+    jti: Optional[str] = None
+
+
+SCOPE_VRAGEN = "datastation:vragen"
+SCOPE_RESULTAAT = "datastation:resultaat"
+
+
+def doelgroep() -> Optional[str]:
+    """De `aud` die dit datastation accepteert (DATASTATION_AUDIENCE). Zonder waarde
+    worden machinetokens geweigerd (fail-closed)."""
+    return os.getenv("DATASTATION_AUDIENCE", "").strip() or None
+
+
+def alleen_machine() -> bool:
+    """Na de overgang: afnemers alleen nog met een machinetoken, niet meer met het
+    token van een gewoon (service)account."""
+    return os.getenv("DATASTATION_AFNEMER_ALLEEN_MACHINE", "off").strip().lower() in ("1", "on", "true", "yes")
 
 
 def enforce() -> bool:
@@ -88,13 +106,11 @@ def _weiger(code: int, reden: str, request: Request, detail: str):
     raise HTTPException(code, detail, headers={"WWW-Authenticate": "Bearer"} if code == 401 else None)
 
 
-def vrager(
-    request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
-    db: Session = Depends(get_db),
-) -> Union[Afnemer, User, None]:
+def _vrager(request: Request, credentials: Optional[HTTPAuthorizationCredentials], db: Session,
+            scope: str) -> Union[Afnemer, User, None]:
     """Wie mag een vraag indienen of een resultaat ophalen: een geconfigureerde
-    afnemer, of een gebruiker met toegang tot dit datastation (de eigen UI)."""
+    afnemer (machinetoken met juiste doelgroep en scope, of tijdens de overgang het
+    token van een serviceaccount), of een gebruiker met toegang (de eigen UI)."""
     token = _token(request, credentials)
     if not token:
         if not enforce():
@@ -106,9 +122,25 @@ def vrager(
         except (JWTError, ValueError):
             _weiger(401, "ongeldig of verlopen centraal token", request, "Ongeldig of verlopen token")
         label = afnemers().get(str(claims.get("sub")))
+        if claims.get("typ") == "machine":
+            # Machinetoken (B-28): nooit het menselijke pad; alles moet kloppen.
+            if not label:
+                _weiger(403, "machine is geen geconfigureerde afnemer", request, "Geen toegang")
+            if not doelgroep() or claims.get("aud") != doelgroep():
+                _weiger(403, f"verkeerde doelgroep {claims.get('aud')!r}", request, "Geen toegang")
+            if scope not in str(claims.get("scope") or "").split():
+                _weiger(403, f"scope {scope} ontbreekt", request, "Geen toegang")
+            log.info("afnemer %s (machine, jti=%s): %s %s", label, str(claims.get("jti") or "-")[:8],
+                     request.method, request.url.path)
+            return Afnemer(label=label, sub=str(claims["sub"]), organisatie=claims.get("tenant_name"),
+                           machine=True, jti=claims.get("jti"))
         if label:
-            log.info("afnemer %s: %s %s", label, request.method, request.url.path)
-            return Afnemer(label=label, sub=str(claims["sub"]), organisatie=claims.get("tenant_name"))
+            if alleen_machine():
+                _weiger(403, "afnemer zonder machinetoken (alleen machine)", request, "Geen toegang")
+            log.info("afnemer %s (serviceaccount, jti=%s): %s %s", label, str(claims.get("jti") or "-")[:8],
+                     request.method, request.url.path)
+            return Afnemer(label=label, sub=str(claims["sub"]), organisatie=claims.get("tenant_name"),
+                           jti=claims.get("jti"))
     # Geen afnemer: dan moet het een gebruiker zijn die deze applicatie écht
     # toegewezen heeft. Strikt, ook als APP_ACCESS_ENFORCE op 'warn' staat: anders
     # kwam elk centraal account (ook een ingetrokken afnemer) via deze weg binnen.
@@ -120,6 +152,20 @@ def vrager(
     if not toegestaan:
         _weiger(403, f"gebruiker zonder toegang ({reden})", request, "Geen toegang tot deze route")
     return user
+
+
+def vrager_vragen(request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+                  db: Session = Depends(get_db)) -> Union[Afnemer, User, None]:
+    return _vrager(request, credentials, db, SCOPE_VRAGEN)
+
+
+def vrager_resultaat(request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+                     db: Session = Depends(get_db)) -> Union[Afnemer, User, None]:
+    return _vrager(request, credentials, db, SCOPE_RESULTAAT)
+
+
+# Bestaande naam, voor de indieningsroute.
+vrager = vrager_vragen
 
 
 # ── Begrenzing per afnemer ───────────────────────────────────────────────────
