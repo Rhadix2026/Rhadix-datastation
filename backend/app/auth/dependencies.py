@@ -64,6 +64,14 @@ def _provision_from_claims(claims: dict, db: Session) -> User:
     return user
 
 
+def centrale_claims(token: str) -> dict:
+    """De enige plek waar een centraal (RS256) token wordt geverifieerd: handtekening,
+    issuer en geldigheid. Zowel gebruikers (`get_current_user`) als afnemers
+    (`auth/afnemer.py`) lopen hierlangs, zodat toekomstige controles — zoals de
+    centrale tokenintrekking van B-16 — voor beide gelden. Gooit JWTError/ValueError."""
+    return decode_central_token(token)
+
+
 def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
@@ -75,7 +83,7 @@ def get_current_user(
                             headers={"WWW-Authenticate": "Bearer"})
     try:
         if CENTRAL_PUBLIC_KEY and token_alg(token) == "RS256":
-            return _provision_from_claims(decode_central_token(token), db)
+            return _provision_from_claims(centrale_claims(token), db)
         payload = decode_access_token(token)
         user_id = payload.get("sub")
         if not user_id:

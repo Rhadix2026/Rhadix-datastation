@@ -206,3 +206,20 @@ def test_geen_geheimen_in_de_log(client, caplog):
 def test_configuratie_ongeldige_regels_genegeerd(monkeypatch):
     monkeypatch.setenv("DATASTATION_AFNEMERS", "Hoofd Letters=x, =y, ok-label=z, geen-sub=")
     assert am.afnemers() == {"z": "ok-label"}
+
+
+def test_afnemer_en_gebruiker_delen_de_centrale_verificatie(client, auth, monkeypatch):
+    """Toekomstige intrekking (B-16) komt in `centrale_claims`; die moet dus ook voor
+    afnemers gelden. Weigert die functie, dan zijn afnemer én gebruiker eruit."""
+    from jose import JWTError
+    import app.auth.dependencies as dep
+    assert _indienen(client).status_code == 201
+    gezien = []
+
+    def ingetrokken(token):
+        gezien.append(token)
+        raise JWTError("ingetrokken")
+    monkeypatch.setattr(dep, "centrale_claims", ingetrokken)
+    assert _indienen(client).status_code == 401
+    assert client.get("/api/datastation/vragen?status=open", headers=auth).status_code == 401
+    assert len(gezien) == 2

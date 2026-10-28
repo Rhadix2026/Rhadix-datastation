@@ -40,8 +40,9 @@ from fastapi.security import HTTPAuthorizationCredentials
 from jose import JWTError
 from sqlalchemy.orm import Session
 
+from app.auth import dependencies as _dep
 from app.auth.dependencies import _bearer, get_current_user
-from app.auth.security import CENTRAL_PUBLIC_KEY, decode_central_token, token_alg
+from app.auth.security import CENTRAL_PUBLIC_KEY, token_alg
 from app.database import get_db
 from app.models.auth_models import User
 
@@ -101,7 +102,7 @@ def vrager(
         _weiger(401, "geen token", request, "Niet geauthenticeerd")
     if CENTRAL_PUBLIC_KEY and token_alg(token) == "RS256":
         try:
-            claims = decode_central_token(token)
+            claims = _dep.centrale_claims(token)     # zelfde verificatie als gebruikers (B-16)
         except (JWTError, ValueError):
             _weiger(401, "ongeldig of verlopen centraal token", request, "Ongeldig of verlopen token")
         label = afnemers().get(str(claims.get("sub")))
