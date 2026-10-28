@@ -58,6 +58,7 @@ def _provision_from_claims(claims: dict, db: Session) -> User:
     # de apps-claim is de enige bron voor menselijke applicatietoegang.
     user._token_source = "central"
     user._apps = claims.get("apps")
+    user._central_sub = claims.get("sub")
     user._token_typ = claims.get("typ")
     user._token_scope = claims.get("scope")
     return user

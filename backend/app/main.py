@@ -33,8 +33,8 @@ def _startup():
 
 
 # Applicatietoegang op basis van de centrale apps-claim (zie auth/app_access.py).
-# Zonder token doet de dependency niets, zodat publieke routes (health, meta) en de
-# server-to-server routes van het datastation ongewijzigd blijven werken.
+# Zonder token doet de dependency niets, zodat publieke routes (health, meta)
+# ongewijzigd blijven werken. De afnemerroutes hebben een eigen controle (B-28).
 #
 # /api/auth blijft bewust ONgegate: zo kan de frontend ook zonder toewijzing nog
 # /auth/me ophalen en de gebruiker een verklarende melding tonen in plaats van een
@@ -47,6 +47,8 @@ app.include_router(auth_router, prefix="/api/auth")
 app.include_router(admin.router, prefix="/api/admin", dependencies=_app_access)
 app.include_router(org.router, prefix="/api/org", dependencies=_app_access)
 app.include_router(datastation.router, prefix="/api", dependencies=_app_access)
+# Afnemerroutes (B-28): eigen authenticatie per route, zie auth/afnemer.py.
+app.include_router(datastation.afnemer_router, prefix="/api")
 
 
 @app.get("/api")

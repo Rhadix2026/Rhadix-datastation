@@ -35,6 +35,10 @@ class DatastationVraag(Base):
     indicator_label    = Column(String(255), nullable=True)   # volledige indicatortekst (zoals in Uitvraag)
     afnemer            = Column(String(255), nullable=True)   # wie stelt de vraag (ketenpartij/organisatie)
     zorgaanbieder      = Column(String(255), nullable=True)   # voor wie is de vraag bestemd
+    # B-28: welke geauthenticeerde afnemer de vraag indiende (label uit de configuratie
+    # en centrale sub). Leeg voor vragen van gebruikers en van vóór B-28.
+    afnemer_id         = Column(String(64), nullable=True)
+    afnemer_sub        = Column(String(64), nullable=True, index=True)
 
     status             = Column(String(24), nullable=False, default=STATUS_TE_BEOORDELEN, index=True)
     berekende_waarde   = Column(Float, nullable=True)         # wat het datastation uitrekende

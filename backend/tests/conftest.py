@@ -52,6 +52,7 @@ def sso_token():
         "role": "RHADIX_ADMIN",
         "name": "SSO Beheerder",
         "tenant_name": "Rhadix Platform",
+        "apps": ["datastation"],
     })
 
 

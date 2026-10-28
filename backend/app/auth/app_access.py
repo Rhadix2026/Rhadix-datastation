@@ -85,6 +85,13 @@ def require_app_access(user: Optional[User] = Depends(get_optional_user)) -> Opt
     if user is None:
         return None
 
+    # Een afnemer-serviceaccount (B-28) hoort alleen op de afnemerroutes; hier
+    # nooit, ongeacht de stand en ongeacht een later toegewezen applicatie.
+    from app.auth.afnemer import is_afnemer_sub
+    if is_afnemer_sub(getattr(user, "_central_sub", None)):
+        log.warning("APP_ACCESS GEWEIGERD: afnemer-serviceaccount op een gebruikersroute")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Afnemers hebben geen toegang tot deze route")
+
     toegestaan, reden = beoordeel_toegang(user)
     if toegestaan:
         return user

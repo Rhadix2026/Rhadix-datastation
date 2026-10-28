@@ -198,11 +198,12 @@ def test_9_publieke_routes_ongewijzigd(client, monkeypatch):
     assert client.get("/api/meta").status_code == 200
 
 
-def test_9b_server_to_server_route_blijft_open(client, monkeypatch):
-    """Uitvraag dient vragen in zonder token; dat mag de app-check niet breken."""
+def test_9b_server_to_server_route_vraagt_nu_authenticatie(client, monkeypatch):
+    """B-28: de vroegere publieke route vraagt nu een token; een afnemer gebruikt
+    /datastation/vragen met een centraal serviceaccount (zie test_b28_afnemer.py)."""
     monkeypatch.setenv("APP_ACCESS_ENFORCE", "on")
     r = client.post(PUBLIEK, json={"sparql": _SPARQL})
-    assert r.status_code == 200, r.text
+    assert r.status_code == 401, r.text
 
 
 def test_9c_auth_me_blijft_bereikbaar_zonder_toewijzing(client, monkeypatch):

@@ -27,7 +27,9 @@ def _ensure_columns() -> None:
     """Lichtgewicht migratie: voeg ontbrekende kolommen toe aan bestaande tabellen."""
     from sqlalchemy import inspect, text
     wanted = {"datastation_vragen": [("zorgaanbieder", "VARCHAR(255)"),
-                                     ("indicator_label", "VARCHAR(255)")]}
+                                     ("indicator_label", "VARCHAR(255)"),
+                                     ("afnemer_id", "VARCHAR(64)"),
+                                     ("afnemer_sub", "VARCHAR(64)")]}
     insp = inspect(engine)
     with engine.begin() as conn:
         for table, cols in wanted.items():
