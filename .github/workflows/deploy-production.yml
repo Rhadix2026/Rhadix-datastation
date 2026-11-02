@@ -160,10 +160,14 @@ jobs:
 
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            if ! $COMPOSE_CMD pull; then
+            # B-33: db en fuseki worden nooit opnieuw aangemaakt; alleen de applicatie.
+            if ! $COMPOSE_CMD up -d --no-recreate db fuseki; then
+              echo "✗ Infra-controle mislukt — applicatie onaangeroerd, deploy afgebroken"; exit 1
+            fi
+            if ! $COMPOSE_CMD pull backend frontend; then
               echo "✗ Pull mislukt — containers onaangeroerd, deploy afgebroken"; exit 1
             fi
-            $COMPOSE_CMD up -d --remove-orphans
+            $COMPOSE_CMD up -d --no-deps --remove-orphans backend frontend
             echo "Containers gestart, health check..."
 
             HEALTHY=false
@@ -182,7 +186,7 @@ jobs:
             if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$VERSION" ] && [ "$PREV_VERSION" != "latest" ]; then
               echo "Terugzetten naar: $PREV_VERSION"
               sed -i "s/KIK_VERSION=.*/KIK_VERSION=$PREV_VERSION/" /opt/datastation-app/.env.production
-              $COMPOSE_CMD up -d --remove-orphans
+              $COMPOSE_CMD up -d --no-deps --remove-orphans backend frontend
               sleep 15
               RB=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8016/api/health 2>/dev/null || echo "000")
               [ "$RB" = "200" ] && echo "✓ Rollback naar $PREV_VERSION geslaagd" || echo "✗ Rollback ook mislukt (HTTP $RB) — handmatige interventie nodig"
