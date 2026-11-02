@@ -55,8 +55,10 @@ jobs:
             sed -i '/^STAGING_IMAGE_TAG=/d' /opt/datastation-app/.env.staging
             echo "STAGING_IMAGE_TAG=$TAG" >> /opt/datastation-app/.env.staging
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -p datastation-staging -f /opt/datastation-app/docker-compose.staging.yml --env-file /opt/datastation-app/.env.staging pull
-            docker compose -p datastation-staging -f /opt/datastation-app/docker-compose.staging.yml --env-file /opt/datastation-app/.env.staging up -d --remove-orphans
+            # B-33: alleen de applicatie terugzetten; db en fuseki nooit opnieuw aanmaken.
+            docker compose -p datastation-staging -f /opt/datastation-app/docker-compose.staging.yml --env-file /opt/datastation-app/.env.staging up -d --no-recreate db fuseki
+            docker compose -p datastation-staging -f /opt/datastation-app/docker-compose.staging.yml --env-file /opt/datastation-app/.env.staging pull backend frontend
+            docker compose -p datastation-staging -f /opt/datastation-app/docker-compose.staging.yml --env-file /opt/datastation-app/.env.staging up -d --no-deps --remove-orphans backend frontend
             echo "✓ Rollback uitgevoerd naar $TAG"
       - name: Health check na rollback
         uses: appleboy/ssh-action@v1.0.3
