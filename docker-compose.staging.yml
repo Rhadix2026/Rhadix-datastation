@@ -14,7 +14,11 @@
 services:
 
   db:
-    image: postgres:16-alpine
+    # B-33: vastgezet op digest, zodat een pull of verschoven tag dit image niet
+    # ongemerkt wijzigt. De deploy-workflow maakt deze container nooit opnieuw aan
+    # (--no-recreate). Bewust upgraden: digest hier aanpassen, back-up maken, dan
+    # handmatig `up -d --no-deps --force-recreate <service>`; terug = vorige digest.
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     container_name: datastation-staging-db
     restart: unless-stopped
     environment:
@@ -31,7 +35,8 @@ services:
     # Geen externe poort — alleen via intern Docker-netwerk
 
   fuseki:
-    image: stain/jena-fuseki:5.1.0
+    # B-33: vastgezet op digest (zie toelichting bij db).
+    image: stain/jena-fuseki:5.1.0@sha256:b1d0c96f19adddef417520184471ac816cf36c6e72936a88ea02b29f4305929a
     container_name: datastation-staging-fuseki
     restart: unless-stopped
     environment:
